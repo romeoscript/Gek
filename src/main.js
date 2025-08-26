@@ -214,9 +214,9 @@ class GEKLanding {
             renderer: this.renderer,
             fps: this.manifest.fps,
             manifest: this.manifest,
-            width: 4.6,
-            height: 3.45,
-            position: new THREE.Vector3(1.8, -0.1, 0),
+            width: 9.9,
+            height: 5.65,
+            position: new THREE.Vector3(0.1, -0.1, 0),
             zIndex: 0,
             stickBottom: true,
             bottomPadding: 0
