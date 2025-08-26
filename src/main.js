@@ -166,6 +166,9 @@ class SequencePlayer {
 class GEKLanding {
     constructor() {
         this.init()
+        this.idleTimer = null
+        this.isAwake = false
+        this.idleTimeout = 8000 // 8 seconds of inactivity before sleeping
     }
 
     async init() {
@@ -175,7 +178,6 @@ class GEKLanding {
         this.setupEventListeners()
         await this.initSequences()
         initHotspots()
-        window.addEventListener('resize', this.handleResize.bind(this))
     }
 
     async loadManifest() {
@@ -209,6 +211,54 @@ class GEKLanding {
 
     setupEventListeners() {
         window.addEventListener('resize', this.handleResize.bind(this))
+        
+        // Track user interactions to wake up the frog
+        const interactionEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+        interactionEvents.forEach(event => {
+            document.addEventListener(event, this.handleUserInteraction.bind(this), { passive: true })
+        })
+    }
+
+    handleUserInteraction() {
+        if (!this.isAwake) {
+            this.wakeUp()
+        }
+        this.resetIdleTimer()
+    }
+
+    resetIdleTimer() {
+        if (this.idleTimer) {
+            clearTimeout(this.idleTimer)
+        }
+        this.idleTimer = setTimeout(() => {
+            this.goToSleep()
+        }, this.idleTimeout)
+    }
+
+    async wakeUp() {
+        this.isAwake = true
+        await this.sequencePlayer.switchTo('wake')
+        this.sequencePlayer.play()
+        
+        // Wait for wake animation to complete, then switch to idle
+        const wakeDuration = (this.manifest.sequences.wake.end + 1) / this.manifest.fps * 1000
+        setTimeout(async () => {
+            await this.sequencePlayer.switchTo('idle')
+            this.sequencePlayer.play()
+        }, wakeDuration)
+    }
+
+    async goToSleep() {
+        this.isAwake = false
+        await this.sequencePlayer.switchTo('sleepTransition')
+        this.sequencePlayer.play()
+        
+        // Wait for transition to complete, then switch to sleep
+        const transitionDuration = (this.manifest.sequences.sleepTransition.end + 1) / this.manifest.fps * 1000
+        setTimeout(async () => {
+            await this.sequencePlayer.switchTo('sleep')
+            this.sequencePlayer.play()
+        }, transitionDuration)
     }
 
     async initSequences() {
@@ -240,28 +290,11 @@ class GEKLanding {
             stickBottom: true,
             bottomPadding: 0
         })
-        await this.sequencePlayer.switchTo('idle')
-        this.demoStateFlow()
+        
+        // Start with the frog asleep
+        await this.sequencePlayer.switchTo('sleep')
+        this.sequencePlayer.play()
         this.sequencePlayer.alignToBottom(0)
-    }
-
-    demoStateFlow() {
-        const toSleep = () => this.sequencePlayer.switchTo('sleepTransition').then(() => {
-            this.sequencePlayer.play()
-            const onDone = () => setTimeout(() => this.sequencePlayer.switchTo('sleep').then(() => {
-                this.sequencePlayer.play()
-                setTimeout(toWake, 6000)
-            }), 0)
-            setTimeout(onDone, (this.manifest.sequences.sleepTransition.end + 1) / this.manifest.fps * 1000)
-        })
-        const toWake = () => this.sequencePlayer.switchTo('wake').then(() => {
-            this.sequencePlayer.play()
-            setTimeout(() => this.sequencePlayer.switchTo('idle').then(() => {
-                this.sequencePlayer.play()
-                setTimeout(toSleep, 4000)
-            }), (this.manifest.sequences.wake.end + 1) / this.manifest.fps * 1000)
-        })
-        setTimeout(toSleep, 4000)
     }
 
     handleResize() {
