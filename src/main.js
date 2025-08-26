@@ -4,199 +4,245 @@ import { TextPlugin } from 'gsap/TextPlugin'
 import * as THREE from 'three'
 import './style.css'
 
-// Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger, TextPlugin)
+
+class SequencePlayer {
+    constructor(params) {
+        this.scene = params.scene
+        this.camera = params.camera
+        this.renderer = params.renderer
+        this.fps = params.fps || 24
+        this.manifest = params.manifest
+        this.current = null
+        this.texturesCache = new Map()
+        this.clock = 0
+        this.targetPlane = null
+        this.isPlaying = false
+        this.options = {
+            width: params.width || 3.2,
+            height: params.height || 2.4,
+            position: params.position || new THREE.Vector3(1.2, -0.2, 0),
+            coverViewport: params.coverViewport || false,
+            zIndex: params.zIndex || 0,
+            stickBottom: params.stickBottom || false,
+            bottomPadding: params.bottomPadding || 0
+        }
+
+        this._createPlane()
+        gsap.ticker.add(this._tick)
+    }
+
+    _createPlane() {
+        const geometry = new THREE.PlaneGeometry(this.options.width, this.options.height)
+        const material = new THREE.MeshBasicMaterial({ transparent: true })
+        this.targetPlane = new THREE.Mesh(geometry, material)
+        this.targetPlane.position.copy(this.options.position)
+        this.targetPlane.position.z = this.options.zIndex
+        this.scene.add(this.targetPlane)
+
+        if (this.options.coverViewport) {
+            this.fitToViewport()
+        }
+        if (this.options.stickBottom) {
+            this.alignToBottom(this.options.bottomPadding)
+        }
+    }
+
+    fitToViewport() {
+        const distance = this.camera.position.z - this.targetPlane.position.z
+        const vFOV = (this.camera.fov * Math.PI) / 180
+        const height = 2 * Math.tan(vFOV / 2) * distance
+        const width = height * this.camera.aspect
+        this.targetPlane.scale.set(width / this.options.width, height / this.options.height, 1)
+        this.targetPlane.position.x = 0
+        this.targetPlane.position.y = 0
+    }
+
+    alignToBottom(padding = 0) {
+        const distance = this.camera.position.z - this.targetPlane.position.z
+        const vFOV = (this.camera.fov * Math.PI) / 180
+        const viewportHeight = 2 * Math.tan(vFOV / 2) * distance
+        const planeHeight = this.options.height * this.targetPlane.scale.y
+        const bottomY = -viewportHeight / 2 + (planeHeight / 2) + (padding / 100)
+        this.targetPlane.position.y = bottomY
+    }
+
+    _tick = (time, deltaTime) => {
+        if (!this.isPlaying || !this.current) return
+        const dt = deltaTime / 1000
+        this.clock += dt
+        const frameDuration = 1 / this.fps
+        while (this.clock >= frameDuration) {
+            this.clock -= frameDuration
+            this._advanceFrame()
+        }
+    }
+
+    async loadSequence(key) {
+        if (!this.manifest.sequences[key]) throw new Error(`Unknown sequence: ${key}`)
+        const cfg = this.manifest.sequences[key]
+        const total = cfg.end - cfg.start + 1
+        const frames = new Array(total).fill(0).map((_, i) => this._frameUrl(cfg, cfg.start + i))
+        this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
+        await this._ensureWarmCache(frames.slice(0, 10))
+        this._setFrameTexture(0)
+    }
+
+    play() { this.isPlaying = true }
+    pause() { this.isPlaying = false }
+
+    async switchTo(key) {
+        await this.loadSequence(key)
+        this.play()
+    }
+
+    _advanceFrame() {
+        if (!this.current) return
+        const next = this.current.index + 1
+        const last = this.current.frames.length - 1
+        if (next > last) {
+            if (this.current.loop) {
+                this.current.index = 0
+            } else {
+                this.pause()
+                return
+            }
+        } else {
+            this.current.index = next
+        }
+        if (this.current.index % 10 === 0) {
+            const upcoming = this.current.frames.slice(this.current.index, this.current.index + 20)
+            this._ensureWarmCache(upcoming)
+        }
+        this._setFrameTexture(this.current.index)
+    }
+
+    _frameUrl(cfg, num) {
+        const n = String(num).padStart(cfg.pad, '0')
+        return `${cfg.path}${cfg.pattern.replace('%05d', n)}`
+    }
+
+    async _ensureWarmCache(urls) {
+        await Promise.all(urls.map(url => this._loadTexture(url)))
+    }
+
+    async _loadTexture(url) {
+        if (this.texturesCache.has(url)) return this.texturesCache.get(url)
+        const loader = new THREE.TextureLoader()
+        return new Promise((resolve, reject) => {
+            loader.load(url, texture => {
+                texture.colorSpace = THREE.SRGBColorSpace
+                this.texturesCache.set(url, texture)
+                resolve(texture)
+            }, undefined, reject)
+        })
+    }
+
+    async _setFrameTexture(index) {
+        const url = this.current.frames[index]
+        const texture = await this._loadTexture(url)
+        this.targetPlane.material.map = texture
+        this.targetPlane.material.needsUpdate = true
+    }
+}
 
 class GEKLanding {
     constructor() {
         this.init()
     }
 
-    init() {
-        this.setupThreeJS()
+    async init() {
+        await this.setupThreeJS()
+        await this.loadManifest()
         this.setupAnimations()
         this.setupEventListeners()
-        this.initMonitors()
+        await this.initSequences()
     }
 
-    setupThreeJS() {
-        // Three.js setup for background effects
+    async loadManifest() {
+        const res = await fetch('/animations/manifest.json')
+        this.manifest = await res.json()
+    }
+
+    async setupThreeJS() {
         const canvas = document.getElementById('three-canvas')
         if (!canvas) return
 
         this.scene = new THREE.Scene()
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
         this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
-        
         this.renderer.setSize(window.innerWidth, window.innerHeight)
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-        // Create animated background
-        this.createBackground()
-        
-        // Position camera
-        this.camera.position.z = 5
+        const ambient = new THREE.AmbientLight(0x88ffcc, 0.6)
+        this.scene.add(ambient)
 
-        // Animation loop
-        this.animate()
-    }
+        this.camera.position.set(0, 0, 5)
 
-    createBackground() {
-        // Create particles for background effect
-        const particlesGeometry = new THREE.BufferGeometry()
-        const particlesCount = 1000
-        const posArray = new Float32Array(particlesCount * 3)
-
-        for (let i = 0; i < particlesCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 20
+        const renderLoop = () => {
+            requestAnimationFrame(renderLoop)
+            this.renderer.render(this.scene, this.camera)
         }
-
-        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3))
-
-        const particlesMaterial = new THREE.PointsMaterial({
-            size: 0.005,
-            color: '#00ff88',
-            transparent: true,
-            opacity: 0.8
-        })
-
-        this.particles = new THREE.Points(particlesGeometry, particlesMaterial)
-        this.scene.add(this.particles)
+        renderLoop()
     }
 
-    animate() {
-        requestAnimationFrame(this.animate.bind(this))
-
-        if (this.particles) {
-            this.particles.rotation.x += 0.001
-            this.particles.rotation.y += 0.001
-        }
-
-        this.renderer.render(this.scene, this.camera)
-    }
-
-    setupAnimations() {
-        // Hero section animations
-        gsap.from('.hero-title .title-line', {
-            duration: 1,
-            y: 50,
-            opacity: 0,
-            ease: 'power3.out',
-            delay: 0.5
-        })
-
-        gsap.from('.hero-title .title-main', {
-            duration: 1.5,
-            y: 100,
-            opacity: 0,
-            ease: 'power3.out',
-            delay: 0.8
-        })
-
-        gsap.from('.hero-title .title-subtitle', {
-            duration: 1,
-            y: 50,
-            opacity: 0,
-            ease: 'power3.out',
-            delay: 1.2
-        })
-
-        gsap.from('.hero-description', {
-            duration: 1,
-            y: 30,
-            opacity: 0,
-            ease: 'power3.out',
-            delay: 1.5
-        })
-
-        gsap.from('.hero-buttons', {
-            duration: 1,
-            y: 30,
-            opacity: 0,
-            ease: 'power3.out',
-            delay: 1.8
-        })
-
-        // Monitor animations
-        gsap.from('.monitor', {
-            duration: 1,
-            scale: 0.8,
-            opacity: 0,
-            ease: 'power3.out',
-            stagger: 0.1,
-            scrollTrigger: {
-                trigger: '.monitors-section',
-                start: 'top 80%',
-                end: 'bottom 20%',
-                toggleActions: 'play none none reverse'
-            }
-        })
-
-        // Contract section animation
-        gsap.from('.contract-container', {
-            duration: 1,
-            y: 50,
-            opacity: 0,
-            ease: 'power3.out',
-            scrollTrigger: {
-                trigger: '.contract-section',
-                start: 'top 80%',
-                end: 'bottom 20%',
-                toggleActions: 'play none none reverse'
-            }
-        })
-    }
+    setupAnimations() {}
 
     setupEventListeners() {
-        // Monitor hover effects
-        document.querySelectorAll('.monitor').forEach(monitor => {
-            monitor.addEventListener('mouseenter', this.handleMonitorHover.bind(this))
-            monitor.addEventListener('mouseleave', this.handleMonitorLeave.bind(this))
-        })
-
-        // Copy contract address
-        const copyBtn = document.querySelector('.copy-btn')
-        if (copyBtn) {
-            copyBtn.addEventListener('click', this.copyContractAddress.bind(this))
-        }
-
-        // Window resize
         window.addEventListener('resize', this.handleResize.bind(this))
     }
 
-    handleMonitorHover(e) {
-        const monitor = e.currentTarget
-        gsap.to(monitor, {
-            duration: 0.3,
-            scale: 1.05,
-            ease: 'power2.out'
+    async initSequences() {
+        this.backgroundPlayer = new SequencePlayer({
+            scene: this.scene,
+            camera: this.camera,
+            renderer: this.renderer,
+            fps: this.manifest.fps,
+            manifest: this.manifest,
+            width: 2,
+            height: 2,
+            position: new THREE.Vector3(0, 0, -1),
+            zIndex: -1,
+            coverViewport: true
         })
+        await this.backgroundPlayer.switchTo('background')
+        this.backgroundPlayer.play()
 
-        // Add glow effect
-        monitor.style.boxShadow = '0 0 30px rgba(0, 255, 136, 0.5)'
+        this.sequencePlayer = new SequencePlayer({
+            scene: this.scene,
+            camera: this.camera,
+            renderer: this.renderer,
+            fps: this.manifest.fps,
+            manifest: this.manifest,
+            width: 4.6,
+            height: 3.45,
+            position: new THREE.Vector3(1.8, -0.1, 0),
+            zIndex: 0,
+            stickBottom: true,
+            bottomPadding: 0
+        })
+        await this.sequencePlayer.switchTo('idle')
+        this.demoStateFlow()
+        this.sequencePlayer.alignToBottom(0)
     }
 
-    handleMonitorLeave(e) {
-        const monitor = e.currentTarget
-        gsap.to(monitor, {
-            duration: 0.3,
-            scale: 1,
-            ease: 'power2.out'
+    demoStateFlow() {
+        const toSleep = () => this.sequencePlayer.switchTo('sleepTransition').then(() => {
+            this.sequencePlayer.play()
+            const onDone = () => setTimeout(() => this.sequencePlayer.switchTo('sleep').then(() => {
+                this.sequencePlayer.play()
+                setTimeout(toWake, 6000)
+            }), 0)
+            setTimeout(onDone, (this.manifest.sequences.sleepTransition.end + 1) / this.manifest.fps * 1000)
         })
-
-        // Remove glow effect
-        monitor.style.boxShadow = '0 0 20px rgba(0, 255, 136, 0.3)'
-    }
-
-    copyContractAddress() {
-        const address = 'HodiZE88VH3SvRYYX2fE6zYE6SsxPn9xJUMUKW1Dg6A'
-        navigator.clipboard.writeText(address).then(() => {
-            const copyBtn = document.querySelector('.copy-btn')
-            copyBtn.textContent = 'Copied!'
-            setTimeout(() => {
-                copyBtn.textContent = 'Copy'
-            }, 2000)
+        const toWake = () => this.sequencePlayer.switchTo('wake').then(() => {
+            this.sequencePlayer.play()
+            setTimeout(() => this.sequencePlayer.switchTo('idle').then(() => {
+                this.sequencePlayer.play()
+                setTimeout(toSleep, 4000)
+            }), (this.manifest.sequences.wake.end + 1) / this.manifest.fps * 1000)
         })
+        setTimeout(toSleep, 4000)
     }
 
     handleResize() {
@@ -204,28 +250,10 @@ class GEKLanding {
             this.camera.aspect = window.innerWidth / window.innerHeight
             this.camera.updateProjectionMatrix()
             this.renderer.setSize(window.innerWidth, window.innerHeight)
+            if (this.backgroundPlayer) this.backgroundPlayer.fitToViewport()
+            if (this.sequencePlayer) this.sequencePlayer.alignToBottom(0)
         }
-    }
-
-    initMonitors() {
-        // Add initial glow effect to monitors
-        document.querySelectorAll('.monitor').forEach(monitor => {
-            monitor.style.boxShadow = '0 0 20px rgba(0, 255, 136, 0.3)'
-        })
-
-        // Animate dino characters
-        gsap.to('.dino', {
-            duration: 2,
-            y: -10,
-            ease: 'power2.inOut',
-            stagger: 0.2,
-            repeat: -1,
-            yoyo: true
-        })
     }
 }
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-    new GEKLanding()
-})
+document.addEventListener('DOMContentLoaded', () => { new GEKLanding() })

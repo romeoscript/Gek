@@ -3,136 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GEK - The Future of Meme Coins</title>
-    <meta name="description" content="GEK - The most innovative meme coin with cutting-edge technology and community-driven development.">
+    <title>GEK</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+      #three-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <!-- Navigation -->
-        <nav class="navbar">
-            <div class="nav-container">
-                <div class="nav-logo">GEK</div>
-                <div class="nav-links">
-                    <a href="#home" class="nav-link">Home</a>
-                    <a href="#about" class="nav-link">About</a>
-                    <a href="#tokenomics" class="nav-link">Tokenomics</a>
-                    <a href="#community" class="nav-link">Community</a>
-                </div>
-                <button class="connect-wallet">Connect Wallet</button>
-            </div>
-        </nav>
-
-        <!-- Hero Section -->
-        <section id="hero" class="hero-section">
-            <div class="hero-background">
-                <canvas id="three-canvas"></canvas>
-            </div>
-            <div class="hero-content">
-                <h1 class="hero-title">
-                    <span class="title-line">Welcome to</span>
-                    <span class="title-main">GEK</span>
-                    <span class="title-subtitle">The Future of Meme Coins</span>
-                </h1>
-                <p class="hero-description">
-                    Experience the next generation of cryptocurrency with cutting-edge technology, 
-                    community-driven development, and unprecedented potential.
-                </p>
-                <div class="hero-buttons">
-                    <button class="btn-primary">Buy $GEK</button>
-                    <button class="btn-secondary">Learn More</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Interactive Monitors Section -->
-        <section id="monitors" class="monitors-section">
-            <div class="monitors-grid">
-                <div class="monitor monitor-1" data-monitor="lambo">
-                    <div class="monitor-screen">
-                        <div class="monitor-content">
-                            <h3>Lambo Video</h3>
-                            <div class="video-placeholder">Coming Soon</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="monitor monitor-2" data-monitor="pudgy">
-                    <div class="monitor-screen">
-                        <div class="monitor-content">
-                            <h3>Little Pudgy Video</h3>
-                            <div class="video-placeholder">Coming Soon</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="monitor monitor-3" data-monitor="dex">
-                    <div class="monitor-screen">
-                        <div class="monitor-content">
-                            <h3>DEX SCREENER</h3>
-                            <div class="chart-placeholder">Live Chart</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="monitor monitor-4" data-monitor="social">
-                    <div class="monitor-screen">
-                        <div class="monitor-content">
-                            <h3>Social Feed</h3>
-                            <div class="social-placeholder">Live Updates</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="monitor monitor-5" data-monitor="play">
-                    <div class="monitor-screen">
-                        <div class="monitor-content">
-                            <h3>Play → Coming Soon</h3>
-                            <div class="dino-characters">
-                                <div class="dino dino-1">🦖</div>
-                                <div class="dino dino-2">🦕</div>
-                                <div class="dino dino-3">🦖</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="monitor monitor-6" data-monitor="chart">
-                    <div class="monitor-screen">
-                        <div class="monitor-content">
-                            <h3>Price Chart</h3>
-                            <div class="chart-container">
-                                <div class="candlestick-chart">
-                                    <div class="chart-bar green"></div>
-                                    <div class="chart-bar red"></div>
-                                    <div class="chart-bar green"></div>
-                                    <div class="chart-bar red"></div>
-                                    <div class="chart-bar green"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Contract Address Section -->
-        <section id="contract" class="contract-section">
-            <div class="contract-container">
-                <div class="contract-label">
-                    <span class="label-icon">CA</span>
-                    <span class="label-text">Contract Address</span>
-                </div>
-                <div class="contract-address">
-                    HodiZE88VH3SvRYYX2fE6zYE6SsxPn9xJUMUKW1Dg6A
-                </div>
-                <button class="copy-btn">Copy</button>
-            </div>
-        </section>
-    </div>
-
+    <canvas id="three-canvas"></canvas>
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>
