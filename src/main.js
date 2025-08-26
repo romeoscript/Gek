@@ -6,6 +6,23 @@ import './style.css'
 
 gsap.registerPlugin(ScrollTrigger, TextPlugin)
 
+// Utility to init hotspot interactions
+function initHotspots() {
+    const hotspots = document.querySelectorAll('#hotspots .hotspot')
+    hotspots.forEach((el) => {
+        el.setAttribute('role', 'link')
+        el.setAttribute('tabindex', '0')
+        const open = () => {
+            el.classList.add('active')
+            setTimeout(() => el.classList.remove('active'), 900)
+            const url = el.getAttribute('data-url')
+            if (url) window.open(url, '_blank', 'noopener,noreferrer')
+        }
+        el.addEventListener('click', open)
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open() })
+    })
+}
+
 class SequencePlayer {
     constructor(params) {
         this.scene = params.scene
@@ -157,6 +174,8 @@ class GEKLanding {
         this.setupAnimations()
         this.setupEventListeners()
         await this.initSequences()
+        initHotspots()
+        window.addEventListener('resize', this.handleResize.bind(this))
     }
 
     async loadManifest() {
