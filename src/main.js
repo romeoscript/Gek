@@ -101,6 +101,10 @@ class SequencePlayer {
         const total = cfg.end - cfg.start + 1
         const frames = new Array(total).fill(0).map((_, i) => this._frameUrl(cfg, cfg.start + i))
         this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
+        
+        console.log(`Loading sequence: ${key} with ${frames.length} frames`)
+        console.log(`First frame URL: ${frames[0]}`)
+        
         await this._ensureWarmCache(frames.slice(0, 10))
         this._setFrameTexture(0)
     }
@@ -151,7 +155,10 @@ class SequencePlayer {
                 texture.colorSpace = THREE.SRGBColorSpace
                 this.texturesCache.set(url, texture)
                 resolve(texture)
-            }, undefined, reject)
+            }, undefined, (error) => {
+                console.error(`Failed to load texture: ${url}`, error)
+                reject(error)
+            })
         })
     }
 
