@@ -38,6 +38,74 @@ function initHotspots() {
     })
 }
 
+// Initialize mobile experience
+function initMobileExperience() {
+    const mobileCopyBtn = document.getElementById('mobile-copy-btn')
+    if (mobileCopyBtn) {
+        mobileCopyBtn.addEventListener('click', (e) => {
+            e.preventDefault()
+            const contractAddress = 'HodiZE88Vh3SvRYYX2fE6zYE6SsxPn9xJUMUkW1Dg6A'
+            
+            navigator.clipboard.writeText(contractAddress).then(() => {
+                // Show mobile-specific notification
+                showMobileCopyNotification('Contract address copied!')
+                
+                // Change button text temporarily
+                const originalText = mobileCopyBtn.textContent
+                mobileCopyBtn.textContent = 'COPIED!'
+                mobileCopyBtn.style.background = 'linear-gradient(45deg, #00cc6a, #00ff88)'
+                
+                setTimeout(() => {
+                    mobileCopyBtn.textContent = originalText
+                    mobileCopyBtn.style.background = 'linear-gradient(45deg, #00ff88, #00cc6a)'
+                }, 2000)
+            }).catch(err => {
+                console.error('Failed to copy contract address:', err)
+                showMobileCopyNotification('Failed to copy address')
+            })
+        })
+    }
+}
+
+// Function to show mobile copy notification
+function showMobileCopyNotification(message) {
+    const notification = document.createElement('div')
+    notification.textContent = message
+    notification.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: #00ff88;
+        padding: 15px 25px;
+        border-radius: 10px;
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        font-size: 16px;
+        z-index: 10000;
+        border: 2px solid #00ff88;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    `
+    
+    document.body.appendChild(notification)
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.opacity = '1'
+    }, 100)
+    
+    // Remove after 2 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0'
+        setTimeout(() => {
+            document.body.removeChild(notification)
+        }, 300)
+    }, 2000)
+}
+
 // Function to show copy notification
 function showCopyNotification(message) {
     // Create notification element
@@ -600,4 +668,21 @@ class GEKLanding {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => { new GEKLanding() })
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if we're on mobile - use more reliable detection
+    const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
+    // Force desktop experience for now to debug
+    const forceDesktop = true
+    
+    if (isMobile && !forceDesktop) {
+        // Initialize mobile experience
+        initMobileExperience()
+        console.log('📱 Mobile experience initialized')
+    } else {
+        // Initialize desktop experience
+        initHotspots()
+        new GEKLanding()
+        console.log('🖥️ Desktop experience initialized')
+    }
+})
