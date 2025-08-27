@@ -95,6 +95,23 @@
       .hotspot.x { top: 26%; left: 18.5%; width: 24%; height: 12.6%; --base-transform: rotate(0.08deg) skewX(-5deg); transform-origin: 50% 50%; }
       /* Abstract middle-right monitor */
       .hotspot.abstract { top: 27%; left: 44.5%; width: 15%; height: 11%; --base-transform: rotate(0.08deg) skewX(-5deg); transform-origin: 50% 50%; }
+      /* Contract address overlay */
+      .hotspot.contract { 
+        bottom: 7%; 
+        left: 5%; 
+        width: auto; 
+        padding: 10px;
+        border-radius: 10px;
+        transform-origin: 50% 50%; 
+        color: #fff !important;
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        font-size: 12px;
+        text-align: center;
+        /* Make it visible for testing */
+        background: rgba(0, 255, 136) !important;
+        border: 2px dashed rgba(0, 255, 136, 0.5) !important;
+      }
     </style>
 </head>
 <body>
@@ -111,6 +128,10 @@
       <a class="hotspot dex" data-url="https://dexscreener.com" title="Dexscreener"></a>
       <a class="hotspot x" data-url="https://x.com" title="X"></a>
       <a class="hotspot abstract" data-url="https://app.abstract.money/" title="Abstract"></a>
+      <a class="hotspot contract" data-contract="HodiZE88Vh3SvRYYX2fE6zYE6SsxPn9xJUMUkW1Dg6A" title="Copy Contract Address">
+        Copy Contract Address
+        <!-- <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 12px; text-align: center; pointer-events: none;">Copy Contract Address</span> -->
+      </a>
     </div>
     <script type="module" src="/src/main.js"></script>
 </body>

@@ -15,12 +15,65 @@ function initHotspots() {
         const open = () => {
             el.classList.add('active')
             setTimeout(() => el.classList.remove('active'), 900)
-            const url = el.getAttribute('data-url')
-            if (url) window.open(url, '_blank', 'noopener,noreferrer')
+            
+            // Check if it's a contract address hotspot
+            const contractAddress = el.getAttribute('data-contract')
+            if (contractAddress) {
+                // Copy contract address to clipboard
+                navigator.clipboard.writeText(contractAddress).then(() => {
+                    // Show a temporary tooltip or notification
+                    showCopyNotification('Contract address copied!')
+                }).catch(err => {
+                    console.error('Failed to copy contract address:', err)
+                    showCopyNotification('Failed to copy address')
+                })
+            } else {
+                // Regular URL opening
+                const url = el.getAttribute('data-url')
+                if (url) window.open(url, '_blank', 'noopener,noreferrer')
+            }
         }
         el.addEventListener('click', open)
         el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open() })
     })
+}
+
+// Function to show copy notification
+function showCopyNotification(message) {
+    // Create notification element
+    const notification = document.createElement('div')
+    notification.textContent = message
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #00ff88;
+        color: #000;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        font-size: 14px;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    `
+    
+    document.body.appendChild(notification)
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)'
+    }, 100)
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)'
+        setTimeout(() => {
+            document.body.removeChild(notification)
+        }, 300)
+    }, 3000)
 }
 
 class OptimizedSequencePlayer {
@@ -391,9 +444,9 @@ class GEKLanding {
     setupEventListeners() {
         window.addEventListener('resize', this.handleResize.bind(this))
         
-        // Track user interactions to wake up the frog
-        const interactionEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
-        interactionEvents.forEach(event => {
+        // Only clicks and touches wake up the frog
+        const wakeEvents = ['click', 'touchstart']
+        wakeEvents.forEach(event => {
             document.addEventListener(event, this.handleUserInteraction.bind(this), { passive: true })
         })
     }
