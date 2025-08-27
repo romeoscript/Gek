@@ -297,29 +297,51 @@ class GEKLanding {
     }
 
     async loadManifest() {
-        // Try to load reduced manifest first for minimal requests
+        // Try to load 50% manifest first for optimal performance
         try {
-            const res = await fetch('/animations/manifest-reduced.json')
+            const res = await fetch('/animations/manifest-50percent.json')
             if (res.ok) {
                 this.manifest = await res.json()
-                console.log('✅ Loaded reduced manifest (169 frames instead of 724)')
+                console.log('✅ Loaded 50% manifest (363 frames instead of 724)')
             } else {
-                throw new Error('Reduced manifest not found')
+                throw new Error('50% manifest not found')
             }
         } catch (error) {
-            console.log('📥 Falling back to optimized manifest...')
+            console.log('📥 Falling back to 70% manifest...')
             try {
-                const res = await fetch('/animations/manifest-optimized.json')
+                const res = await fetch('/animations/manifest-70percent.json')
                 if (res.ok) {
                     this.manifest = await res.json()
-                    console.log('✅ Loaded optimized manifest')
+                    console.log('✅ Loaded 70% manifest (506 frames instead of 724)')
                 } else {
-                    throw new Error('Optimized manifest not found')
+                    throw new Error('70% manifest not found')
                 }
             } catch (error2) {
-                console.log('📥 Falling back to regular manifest...')
-                const res = await fetch('/animations/manifest-cloudinary.json')
-                this.manifest = await res.json()
+                console.log('📥 Falling back to reduced manifest...')
+                try {
+                    const res = await fetch('/animations/manifest-reduced.json')
+                    if (res.ok) {
+                        this.manifest = await res.json()
+                        console.log('✅ Loaded reduced manifest (169 frames instead of 724)')
+                    } else {
+                        throw new Error('Reduced manifest not found')
+                    }
+                } catch (error3) {
+                    console.log('📥 Falling back to optimized manifest...')
+                    try {
+                        const res = await fetch('/animations/manifest-optimized.json')
+                        if (res.ok) {
+                            this.manifest = await res.json()
+                            console.log('✅ Loaded optimized manifest')
+                        } else {
+                            throw new Error('Optimized manifest not found')
+                        }
+                    } catch (error4) {
+                        console.log('📥 Falling back to regular manifest...')
+                        const res = await fetch('/animations/manifest-cloudinary.json')
+                        this.manifest = await res.json()
+                    }
+                }
             }
         }
     }
