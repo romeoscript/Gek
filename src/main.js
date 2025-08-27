@@ -486,9 +486,11 @@ class OptimizedSequencePlayer {
             frames = new Array(total).fill(0).map((_, i) => this._frameUrl(cfg, cfg.start + i))
         }
         
-        this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
+        // Ensure sleep animations always loop
+        const shouldLoop = key === 'sleep' ? true : !!cfg.loop
+        this.current = { key, cfg, index: 0, frames, loop: shouldLoop }
         
-        console.log(`🎬 Loading sequence: ${key} with ${frames.length} frames, loop: ${!!cfg.loop}`)
+        console.log(`🎬 Loading sequence: ${key} with ${frames.length} frames, loop: ${shouldLoop}, cfg.loop: ${cfg.loop}`)
         
         // Load first few frames immediately to prevent freezing
         const initialFrames = frames.slice(0, Math.min(5, frames.length))
@@ -584,9 +586,10 @@ class OptimizedSequencePlayer {
             this._loadTexture(nextFrameUrl).then(() => {
                 this._setFrameTexture(this.current.index)
             }).catch(error => {
-                console.warn(`Failed to load frame ${this.current.index}, retrying...`, error)
-                // Retry loading this frame on next tick
-                setTimeout(() => this._advanceFrame(), 100)
+                console.warn(`Failed to load frame ${this.current.index}, continuing anyway...`, error)
+                // Continue to next frame even if this one fails to load
+                // This prevents the animation from getting stuck
+                setTimeout(() => this._advanceFrame(), 50)
                 return
             })
         }
@@ -683,24 +686,56 @@ class OptimizedSequencePlayer {
                 this.targetPlane.material.needsUpdate = true
             } else {
                 console.warn(`Failed to set texture for frame ${index}: texture or plane not available`)
+                // Continue to next frame even if this one fails
+                if (this.isPlaying) {
+                    setTimeout(() => this._advanceFrame(), 50)
+                }
             }
         } catch (error) {
             console.error(`Error setting frame texture ${index}:`, error)
             // If we can't load this frame, try to continue with the next one
-            setTimeout(() => this._advanceFrame(), 50)
+            if (this.isPlaying) {
+                setTimeout(() => this._advanceFrame(), 50)
+            }
         }
     }
 
     play() { 
         this.isPlaying = true 
         this.lastFrameTime = performance.now()
+        if (this.current?.key === 'sleep') {
+            console.log('😴 Sleep animation started playing')
+        }
     }
     
-    pause() { this.isPlaying = false }
+    pause() { 
+        this.isPlaying = false 
+        if (this.current?.key === 'sleep') {
+            console.log('😴 Sleep animation paused')
+        }
+    }
 
     async switchTo(key) {
         await this.loadSequence(key)
         this.play()
+        
+        // Add safeguard for sleep animation to ensure it keeps playing
+        if (key === 'sleep') {
+            this._ensureSleepAnimationContinues()
+        }
+    }
+    
+    _ensureSleepAnimationContinues() {
+        // Check every 5 seconds if sleep animation is still playing
+        const checkInterval = setInterval(() => {
+            if (this.current?.key === 'sleep' && !this.isPlaying) {
+                console.log('😴 Sleep animation stopped - restarting...')
+                this.play()
+            } else if (this.current?.key !== 'sleep') {
+                // Stop checking if we're no longer in sleep state
+                clearInterval(checkInterval)
+            }
+        }, 5000)
     }
 }
 
