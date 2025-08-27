@@ -6,6 +6,231 @@ import './style.css'
 
 gsap.registerPlugin(ScrollTrigger, TextPlugin)
 
+// Audio Manager Class
+class AudioManager {
+    constructor() {
+        this.sounds = new Map()
+        this.currentBackgroundSound = null
+        this.isMuted = false
+        this.volume = 0.3
+        this.pendingAudio = null
+        this.userHasInteracted = false
+        this.init()
+        this.initAudioContext()
+    }
+
+    initAudioContext() {
+        // Try to unlock audio context for better autoplay support
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext
+            if (AudioContext) {
+                this.audioContext = new AudioContext()
+                
+                // Try to resume audio context on various events
+                const resumeAudioContext = () => {
+                    if (this.audioContext.state === 'suspended') {
+                        this.audioContext.resume()
+                        console.log('🎵 Audio context resumed')
+                    }
+                }
+                
+                ['click', 'touchstart', 'keydown', 'mousedown'].forEach(event => {
+                    document.addEventListener(event, resumeAudioContext, { once: true })
+                })
+            }
+        } catch (error) {
+            console.warn('Audio context not supported:', error)
+        }
+    }
+
+    async init() {
+        try {
+            // Load all audio files
+            await Promise.all([
+                this.loadSound('snoring', '/audio/snoring-long-78149.mp3', { loop: true, volume: 1.0 }),
+                this.loadSound('gasp', '/audio/gasp-82819.mp3', { loop: false, volume: 0.8 }),
+                this.loadSound('typing', '/audio/keyboard-typing-sound-effect-379112.mp3', { loop: true, volume: 0.6 })
+            ])
+            console.log('✅ Audio files loaded successfully')
+            
+            // Try multiple autoplay strategies
+            this.setupAutoplayStrategies()
+            
+        } catch (error) {
+            console.warn('⚠️ Some audio files failed to load:', error)
+        }
+    }
+
+    setupAutoplayStrategies() {
+        // Try autoplay on various page events
+        const events = ['load', 'DOMContentLoaded', 'focus', 'visibilitychange', 'pageshow']
+        
+        events.forEach(event => {
+            window.addEventListener(event, () => {
+                setTimeout(() => {
+                    const snoring = this.sounds.get('snoring')
+                    if (snoring && !snoring.playing) {
+                        console.log(`🔄 Trying autoplay on ${event} event`)
+                        this.tryAutoplay(snoring)
+                    }
+                }, 100)
+            }, { once: true })
+        })
+        
+        // Try autoplay periodically
+        let attempts = 0
+        const maxAttempts = 10
+        const interval = setInterval(() => {
+            attempts++
+            const snoring = this.sounds.get('snoring')
+            if (snoring && !snoring.playing && attempts < maxAttempts) {
+                console.log(`🔄 Autoplay attempt ${attempts}/${maxAttempts}`)
+                this.tryAutoplay(snoring)
+            } else if (attempts >= maxAttempts) {
+                clearInterval(interval)
+                console.log('⏸️ Max autoplay attempts reached - waiting for user interaction')
+            }
+        }, 2000)
+    }
+
+    async loadSound(name, url, options = {}) {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio()
+            audio.preload = 'auto'
+            audio.volume = (options.volume || 0.5) * this.volume
+            audio.muted = false
+            
+            if (options.loop) {
+                audio.loop = true
+            }
+
+            // Try to enable autoplay
+            audio.setAttribute('autoplay', '')
+            audio.setAttribute('playsinline', '')
+            audio.setAttribute('webkit-playsinline', '')
+
+            audio.addEventListener('canplaythrough', () => {
+                audio.playing = false // Track playing state
+                this.sounds.set(name, audio)
+                console.log(`✅ Audio loaded: ${name}`)
+                
+                // Try to play immediately if it's snoring
+                if (name === 'snoring') {
+                    this.tryAutoplay(audio)
+                }
+                
+                resolve(audio)
+            }, { once: true })
+
+            audio.addEventListener('error', (error) => {
+                console.warn(`Failed to load audio ${name}:`, error)
+                reject(error)
+            })
+
+            audio.src = url
+        })
+    }
+
+    tryAutoplay(audio) {
+        // Try multiple autoplay strategies
+        const playPromise = audio.play()
+        
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                audio.playing = true
+                console.log('🎵 Autoplay successful!')
+            }).catch(error => {
+                if (error.name === 'NotAllowedError') {
+                    console.log('⏸️ Autoplay blocked - will try again on user interaction')
+                    this.pendingAudio = 'snoring'
+                } else {
+                    console.warn('Autoplay failed:', error)
+                }
+            })
+        }
+    }
+
+    play(name) {
+        if (this.isMuted) return
+        
+        const sound = this.sounds.get(name)
+        if (sound) {
+            // Stop any currently playing background sound if this is a background sound
+            if (name === 'snoring' && this.currentBackgroundSound) {
+                this.stop(this.currentBackgroundSound)
+            }
+            
+            sound.currentTime = 0
+            sound.play().then(() => {
+                sound.playing = true
+                console.log(`🎵 Playing: ${name}`)
+            }).catch(error => {
+                if (error.name === 'NotAllowedError') {
+                    console.log(`⏸️ Audio ${name} blocked by browser - waiting for user interaction`)
+                    // Store this sound to play when user interacts
+                    this.pendingAudio = name
+                } else {
+                    console.warn(`Failed to play ${name}:`, error)
+                }
+            })
+            
+            if (name === 'snoring') {
+                this.currentBackgroundSound = name
+            }
+        } else {
+            console.warn(`Audio ${name} not found in sounds map`)
+        }
+    }
+
+    stop(name) {
+        const sound = this.sounds.get(name)
+        if (sound) {
+            sound.pause()
+            sound.currentTime = 0
+            sound.playing = false
+            if (name === this.currentBackgroundSound) {
+                this.currentBackgroundSound = null
+            }
+            console.log(`🔇 Stopped: ${name}`)
+        }
+    }
+
+    stopAll() {
+        this.sounds.forEach((sound, name) => {
+            this.stop(name)
+        })
+    }
+
+    setVolume(volume) {
+        this.volume = Math.max(0, Math.min(1, volume))
+        this.sounds.forEach(sound => {
+            sound.volume = sound.volume * this.volume
+        })
+    }
+
+    toggleMute() {
+        this.isMuted = !this.isMuted
+        if (this.isMuted) {
+            this.stopAll()
+        }
+        return this.isMuted
+    }
+
+    onUserInteraction() {
+        if (!this.userHasInteracted) {
+            this.userHasInteracted = true
+            console.log('👆 User interaction detected - audio can now play')
+            
+            // Play any pending audio
+            if (this.pendingAudio) {
+                console.log(`🎵 Playing pending audio: ${this.pendingAudio}`)
+                this.play(this.pendingAudio)
+                this.pendingAudio = null
+            }
+        }
+    }
+}
+
 // Utility to init hotspot interactions
 function initHotspots() {
     const hotspots = document.querySelectorAll('#hotspots .hotspot')
@@ -237,8 +462,14 @@ class OptimizedSequencePlayer {
         
         const currentTime = performance.now()
         if (currentTime - this.lastFrameTime >= this.frameTime) {
-            this._advanceFrame()
-            this.lastFrameTime = currentTime
+            try {
+                this._advanceFrame()
+                this.lastFrameTime = currentTime
+            } catch (error) {
+                console.error('Error in animation tick:', error)
+                // Reset timing to prevent rapid error loops
+                this.lastFrameTime = currentTime
+            }
         }
     }
 
@@ -259,15 +490,17 @@ class OptimizedSequencePlayer {
         
         console.log(`🎬 Loading sequence: ${key} with ${frames.length} frames`)
         
-        // Load only the first frame immediately to start playing
-        await this._loadTexture(frames[0])
+        // Load first few frames immediately to prevent freezing
+        const initialFrames = frames.slice(0, Math.min(5, frames.length))
+        await Promise.all(initialFrames.map(url => this._loadTexture(url)))
+        
         this._setFrameTexture(0)
         this.isPlaying = true
         
         // Get loading strategy from manifest or use defaults
         const loadingStrategy = cfg.loadingStrategy || 'lazy'
-        const preloadCount = cfg.preloadFrames || 5
-        const batchSize = cfg.batchSize || 3
+        const preloadCount = cfg.preloadFrames || 10 // Increased from 5 to 10
+        const batchSize = cfg.batchSize || 5 // Increased from 3 to 5
         
         // Preload frames based on strategy
         if (loadingStrategy === 'test') {
@@ -339,13 +572,39 @@ class OptimizedSequencePlayer {
         } else {
             this.current.index = next
         }
-        this._setFrameTexture(this.current.index)
+        
+        // Check if the next frame texture is loaded before advancing
+        const nextFrameUrl = this.current.frames[this.current.index]
+        if (this.texturesCache.has(nextFrameUrl)) {
+            this._setFrameTexture(this.current.index)
+        } else {
+            // If texture isn't loaded, try to load it and retry
+            this._loadTexture(nextFrameUrl).then(() => {
+                this._setFrameTexture(this.current.index)
+            }).catch(error => {
+                console.warn(`Failed to load frame ${this.current.index}, retrying...`, error)
+                // Retry loading this frame on next tick
+                setTimeout(() => this._advanceFrame(), 100)
+                return
+            })
+        }
         
         // Smart preloading: only preload if we're close to unloaded frames
         if (this.current.index % 3 === 0) {
             const upcomingFrames = this.current.frames.slice(this.current.index + 1, this.current.index + 5)
             this._preloadFrames(upcomingFrames)
         }
+        
+        // Fallback: if we haven't advanced in a while, force advance
+        if (this.current.lastAdvanceTime) {
+            const timeSinceLastAdvance = performance.now() - this.current.lastAdvanceTime
+            if (timeSinceLastAdvance > 5000) { // 5 seconds
+                console.warn('Animation stuck, forcing advance...')
+                this.current.index = (this.current.index + 1) % this.current.frames.length
+                this._setFrameTexture(this.current.index)
+            }
+        }
+        this.current.lastAdvanceTime = performance.now()
     }
 
     async _preloadFrames(frames) {
@@ -377,7 +636,16 @@ class OptimizedSequencePlayer {
         
         const loadPromise = new Promise((resolve, reject) => {
             const loader = new THREE.TextureLoader()
+            
+            // Add timeout to prevent infinite loading
+            const timeout = setTimeout(() => {
+                console.warn(`Texture loading timeout for: ${url}`)
+                this.loadingQueue.delete(url)
+                resolve(null)
+            }, 10000) // 10 second timeout
+            
             loader.load(url, texture => {
+                clearTimeout(timeout)
                 // Optimize texture settings
                 texture.colorSpace = THREE.SRGBColorSpace
                 texture.minFilter = THREE.LinearFilter
@@ -390,6 +658,7 @@ class OptimizedSequencePlayer {
                 this.loadingQueue.delete(url)
                 resolve(texture)
             }, undefined, (error) => {
+                clearTimeout(timeout)
                 console.error(`Failed to load texture: ${url}`, error)
                 this.loadingQueue.delete(url)
                 resolve(null)
@@ -404,11 +673,19 @@ class OptimizedSequencePlayer {
         if (!this.current || !this.current.frames[index]) return
         
         const url = this.current.frames[index]
-        const texture = await this._loadTexture(url)
-        
-        if (texture && this.targetPlane && this.targetPlane.material) {
-            this.targetPlane.material.map = texture
-            this.targetPlane.material.needsUpdate = true
+        try {
+            const texture = await this._loadTexture(url)
+            
+            if (texture && this.targetPlane && this.targetPlane.material) {
+                this.targetPlane.material.map = texture
+                this.targetPlane.material.needsUpdate = true
+            } else {
+                console.warn(`Failed to set texture for frame ${index}: texture or plane not available`)
+            }
+        } catch (error) {
+            console.error(`Error setting frame texture ${index}:`, error)
+            // If we can't load this frame, try to continue with the next one
+            setTimeout(() => this._advanceFrame(), 50)
         }
     }
 
@@ -431,6 +708,7 @@ class GEKLanding {
         this.idleTimer = null
         this.isAwake = false
         this.idleTimeout = 10000 // 8 seconds of inactivity before sleeping
+        this.audioManager = new AudioManager()
     }
 
     async init() {
@@ -440,6 +718,18 @@ class GEKLanding {
         this.setupEventListeners()
         await this.initSequences()
         initHotspots()
+        this.setupAudioControls()
+        
+        // Make audio manager globally accessible
+        window.audioManager = this.audioManager
+        
+        // Ensure snoring starts even if it didn't start in initSequences
+        setTimeout(() => {
+            if (!this.audioManager.sounds.get('snoring')?.playing) {
+                console.log('🔄 Fallback: Starting snoring sound...')
+                this.startSnoring()
+            }
+        }, 2000)
     }
 
     async loadManifest() {
@@ -545,6 +835,11 @@ class GEKLanding {
     }
 
     handleUserInteraction() {
+        // Enable audio on first interaction
+        if (this.audioManager) {
+            this.audioManager.onUserInteraction()
+        }
+        
         if (!this.isAwake) {
             this.wakeUp()
         }
@@ -564,9 +859,18 @@ class GEKLanding {
         if (this.isAwake) return // Prevent multiple wake calls
         this.isAwake = true
         
+        // Stop snoring and play gasp sound
+        this.audioManager.stop('snoring')
+        this.audioManager.play('gasp')
+        
         try {
             await this.sequencePlayer.switchTo('wake')
             this.sequencePlayer.play()
+            
+            // Wait for gasp sound to finish, then start typing sound
+            setTimeout(() => {
+                this.audioManager.play('typing')
+            }, 2000) // Wait 2 seconds for gasp to finish
             
             // Wait for wake animation to complete, then switch to idle
             const wakeDuration = (this.manifest.sequences.wake.end + 1) / this.manifest.fps * 1000
@@ -588,16 +892,21 @@ class GEKLanding {
         if (!this.isAwake) return // Prevent multiple sleep calls
         this.isAwake = false
         
+        // Stop typing sound when going to sleep
+        this.audioManager.stop('typing')
+        
         try {
             await this.sequencePlayer.switchTo('sleepTransition')
             this.sequencePlayer.play()
             
-            // Wait for transition to complete, then switch to sleep
+            // Wait for transition to complete, then switch to sleep and start snoring
             const transitionDuration = (this.manifest.sequences.sleepTransition.end + 1) / this.manifest.fps * 1000
             setTimeout(async () => {
                 if (!this.isAwake) { // Only switch to sleep if still asleep
                     await this.sequencePlayer.switchTo('sleep')
                     this.sequencePlayer.play()
+                    // Start snoring sound
+                    this.audioManager.play('snoring')
                 }
             }, transitionDuration)
         } catch (error) {
@@ -605,6 +914,7 @@ class GEKLanding {
             // Fallback to sleep if transition fails
             await this.sequencePlayer.switchTo('sleep')
             this.sequencePlayer.play()
+            this.audioManager.play('snoring')
         }
     }
 
@@ -630,10 +940,15 @@ class GEKLanding {
             // Hide loading screen
             this.hideLoadingScreen()
             
+            // Start snoring immediately after everything is loaded
+            this.startSnoring()
+            
         } catch (error) {
             console.error('Error initializing sequences:', error)
             // Hide loading screen even if there's an error
             this.hideLoadingScreen()
+            // Still try to start snoring even if there's an error
+            this.startSnoring()
         }
     }
 
@@ -682,6 +997,34 @@ class GEKLanding {
         }
     }
 
+    startSnoring() {
+        // Try to start snoring with retry logic
+        const tryStartSnoring = () => {
+            if (this.audioManager && this.audioManager.sounds.has('snoring')) {
+                console.log('🎵 Starting snoring sound...')
+                this.audioManager.play('snoring')
+            } else {
+                console.log('⏳ Audio not ready yet, retrying in 500ms...')
+                setTimeout(tryStartSnoring, 500)
+            }
+        }
+        
+        // Start trying immediately
+        tryStartSnoring()
+    }
+
+    setupAudioControls() {
+        const audioControl = document.getElementById('audio-control')
+        if (audioControl) {
+            audioControl.addEventListener('click', () => {
+                const isMuted = this.audioManager.toggleMute()
+                audioControl.classList.toggle('muted', isMuted)
+                audioControl.innerHTML = isMuted ? '🔇' : '🔊'
+                audioControl.title = isMuted ? 'Unmute Audio' : 'Mute Audio'
+            })
+        }
+    }
+
     handleResize() {
         if (this.camera && this.renderer) {
             this.camera.aspect = window.innerWidth / window.innerHeight
@@ -710,7 +1053,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         // Initialize desktop experience
         initHotspots()
-        new GEKLanding()
+        const gekLanding = new GEKLanding()
         console.log('🖥️ Desktop experience initialized')
+        
+        // Force start snoring after a short delay to ensure it plays
+        setTimeout(() => {
+            if (gekLanding.audioManager) {
+                console.log('🚀 Force starting snoring...')
+                gekLanding.startSnoring()
+            }
+        }, 1000)
     }
 })
