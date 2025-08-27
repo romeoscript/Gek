@@ -47,6 +47,7 @@ class AudioManager {
         try {
             // Load all audio files
             await Promise.all([
+                this.loadSound('alan', '/audio/alan.mp3', { loop: true, volume: 0.2 }),
                 this.loadSound('snoring', '/audio/snoring-long-78149.mp3', { loop: true, volume: 1.0 }),
                 this.loadSound('gasp', '/audio/gasp-82819.mp3', { loop: false, volume: 0.8 }),
                 this.loadSound('typing', '/audio/keyboard-typing-sound-effect-379112.mp3', { loop: true, volume: 0.6 })
@@ -307,7 +308,7 @@ function initMobileExperience() {
                 
                 setTimeout(() => {
                     mobileCopyBtn.textContent = originalText
-                    mobileCopyBtn.style.background = 'linear-gradient(45deg, #00ff88, #00cc6a)'
+                    mobileCopyBtn.style.background = 'transparent'
                 }, 2000)
             }).catch(err => {
                 console.error('Failed to copy contract address:', err)
@@ -896,7 +897,8 @@ class GEKLanding {
         // Enable audio
         if (this.audioManager) {
             this.audioManager.onUserInteraction()
-            // Start snoring immediately since frog is already sleeping
+            // Start background music and snoring immediately since frog is already sleeping
+            this.audioManager.play('alan')
             this.audioManager.play('snoring')
         }
         
