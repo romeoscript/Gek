@@ -1,0 +1,33 @@
+{
+  "fps": 24,
+  "cloudinary": {
+    "cloud_name": "dxt4avubv",
+    "transformations": "f_auto,q_auto"
+  },
+  "sequences": {
+    "background": {
+      "frames": [
+        "https://res.cloudinary.com/dxt4avubv/image/upload/f_auto,q_auto,fl_progressive/gek-animations/background/aus9o525hrmqiwfo0k1d.webp",
+        "https://res.cloudinary.com/dxt4avubv/image/upload/f_auto,q_auto,fl_progressive/gek-animations/background/g2zvvnd1epvh0km8ytb0.webp",
+        "https://res.cloudinary.com/dxt4avubv/image/upload/f_auto,q_auto,fl_progressive/gek-animations/background/szpc5oaiyhidjaqtgx1e.webp"
+      ],
+      "start": 0,
+      "end": 2,
+      "loop": true,
+      "fileCount": 3,
+      "loadingStrategy": "test"
+    },
+    "idle": {
+      "frames": [
+        "https://res.cloudinary.com/dxt4avubv/image/upload/f_auto,q_auto,fl_progressive/gek-animations/idle-loop/nvbklpl4j7gkcmgsfghl.webp",
+        "https://res.cloudinary.com/dxt4avubv/image/upload/f_auto,q_auto,fl_progressive/gek-animations/idle-loop/aapbgt0f4pfqtkoyfd7j.webp",
+        "https://res.cloudinary.com/dxt4avubv/image/upload/f_auto,q_auto,fl_progressive/gek-animations/idle-loop/ac5hpomyj56zvucwhieq.webp"
+      ],
+      "start": 0,
+      "end": 2,
+      "loop": true,
+      "fileCount": 3,
+      "loadingStrategy": "test"
+    }
+  }
+}
