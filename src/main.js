@@ -295,7 +295,7 @@ function initMobileExperience() {
     if (mobileCopyBtn) {
         mobileCopyBtn.addEventListener('click', (e) => {
             e.preventDefault()
-            const contractAddress = 'HodiZE88Vh3SvRYYX2fE6zYE6SsxPn9xJUMUkW1Dg6A'
+            const contractAddress = '0xbe449b1d1b51bf0d3c7cfbd9ef8ef6b121e71da1'
             
             navigator.clipboard.writeText(contractAddress).then(() => {
                 // Show mobile-specific notification
