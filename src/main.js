@@ -99,23 +99,39 @@ class OptimizedSequencePlayer {
     async loadSequence(key) {
         if (!this.manifest.sequences[key]) throw new Error(`Unknown sequence: ${key}`)
         const cfg = this.manifest.sequences[key]
-        const total = cfg.end - cfg.start + 1
-        const frames = new Array(total).fill(0).map((_, i) => this._frameUrl(cfg, cfg.start + i))
+        
+        // Use actual frame URLs if available, otherwise construct them
+        let frames
+        if (cfg.frames && cfg.frames.length > 0) {
+            frames = cfg.frames
+        } else {
+            const total = cfg.end - cfg.start + 1
+            frames = new Array(total).fill(0).map((_, i) => this._frameUrl(cfg, cfg.start + i))
+        }
         
         this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
         
-        // console.log(`Loading sequence: ${key} with ${frames.length} frames`)
+        console.log(`🎬 Loading sequence: ${key} with ${frames.length} frames`)
         
-        // Start playing immediately with first frame
+        // Load only the first frame immediately to start playing
         await this._loadTexture(frames[0])
         this._setFrameTexture(0)
         this.isPlaying = true
         
-        // Preload next 10 frames for smooth playback
-        this._preloadNextFrames(frames, 10)
+        // Get loading strategy from manifest or use defaults
+        const loadingStrategy = cfg.loadingStrategy || 'lazy'
+        const preloadCount = cfg.preloadFrames || 5
+        const batchSize = cfg.batchSize || 3
         
-        // Start background loading of remaining frames
-        this._backgroundLoad(frames.slice(11))
+        // Preload frames based on strategy
+        if (loadingStrategy === 'test') {
+            // For testing, only preload next 2 frames
+            this._preloadNextFrames(frames, 2)
+        } else {
+            // For production, use optimized preloading
+            this._preloadNextFrames(frames, preloadCount)
+            this._smartBackgroundLoad(frames, batchSize)
+        }
     }
 
     async _preloadNextFrames(frames, count) {
@@ -123,19 +139,36 @@ class OptimizedSequencePlayer {
         await Promise.all(nextFrames.map(url => this._loadTexture(url)))
     }
 
-    async _backgroundLoad(frames) {
-        // Load frames in small batches to avoid blocking
-        const batchSize = 3
-        for (let i = 0; i < frames.length; i += batchSize) {
-            const batch = frames.slice(i, i + batchSize)
-            await Promise.all(batch.map(url => this._loadTexture(url)))
+    async _smartBackgroundLoad(frames, batchSize = 3) {
+        // Only load frames that aren't already cached
+        const uncachedFrames = frames.filter(url => !this.texturesCache.has(url))
+        
+        if (uncachedFrames.length === 0) {
+            console.log('✅ All frames already cached!')
+            return
+        }
+        
+        console.log(`📥 Loading ${uncachedFrames.length} uncached frames in background (batch size: ${batchSize})...`)
+        
+        let loadedCount = 0
+        
+        for (let i = 0; i < uncachedFrames.length; i += batchSize) {
+            const batch = uncachedFrames.slice(i, i + batchSize)
             
-            // Update loading progress
-            const progress = Math.round(((i + batchSize) / frames.length) * 100)
-            this._updateLoadingProgress(progress)
+            // Load batch in background without blocking
+            Promise.all(batch.map(url => this._loadTexture(url)))
+                .then(() => {
+                    loadedCount += batch.length
+                    const progress = Math.round((loadedCount / uncachedFrames.length) * 100)
+                    this._updateLoadingProgress(progress)
+                })
+                .catch(error => {
+                    console.warn('Background loading error:', error)
+                })
             
-            // Small delay to keep UI responsive
-            await new Promise(resolve => setTimeout(resolve, 5))
+            // Adaptive delay based on batch size
+            const delay = batchSize <= 2 ? 30 : 50
+            await new Promise(resolve => setTimeout(resolve, delay))
         }
     }
 
@@ -162,9 +195,9 @@ class OptimizedSequencePlayer {
         }
         this._setFrameTexture(this.current.index)
         
-        // Preload upcoming frames if we're getting close to unloaded ones
-        if (this.current.index % 5 === 0) {
-            const upcomingFrames = this.current.frames.slice(this.current.index + 1, this.current.index + 10)
+        // Smart preloading: only preload if we're close to unloaded frames
+        if (this.current.index % 3 === 0) {
+            const upcomingFrames = this.current.frames.slice(this.current.index + 1, this.current.index + 5)
             this._preloadFrames(upcomingFrames)
         }
     }
@@ -264,8 +297,20 @@ class GEKLanding {
     }
 
     async loadManifest() {
-        const res = await fetch('/animations/manifest-cloudinary.json')
-        this.manifest = await res.json()
+        // Try to load optimized manifest first, fallback to regular manifest
+        try {
+            const res = await fetch('/animations/manifest-optimized.json')
+            if (res.ok) {
+                this.manifest = await res.json()
+                console.log('✅ Loaded optimized manifest')
+            } else {
+                throw new Error('Optimized manifest not found')
+            }
+        } catch (error) {
+            console.log('📥 Falling back to regular manifest...')
+            const res = await fetch('/animations/manifest-optimized.json')
+            this.manifest = await res.json()
+        }
     }
 
     async setupThreeJS() {
