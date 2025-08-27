@@ -53,8 +53,8 @@ class AudioManager {
             ])
             console.log('✅ Audio files loaded successfully')
             
-            // Try multiple autoplay strategies
-            this.setupAutoplayStrategies()
+            // Don't try autoplay strategies - wait for user to click overlay
+            console.log('🎵 Audio loaded - waiting for user interaction via overlay')
             
         } catch (error) {
             console.warn('⚠️ Some audio files failed to load:', error)
@@ -488,7 +488,7 @@ class OptimizedSequencePlayer {
         
         this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
         
-        console.log(`🎬 Loading sequence: ${key} with ${frames.length} frames`)
+        console.log(`🎬 Loading sequence: ${key} with ${frames.length} frames, loop: ${!!cfg.loop}`)
         
         // Load first few frames immediately to prevent freezing
         const initialFrames = frames.slice(0, Math.min(5, frames.length))
@@ -565,7 +565,9 @@ class OptimizedSequencePlayer {
         if (next > last) {
             if (this.current.loop) {
                 this.current.index = 0
+                console.log(`🔄 Looping animation: ${this.current.key}`)
             } else {
+                console.log(`⏸️ Animation ended (no loop): ${this.current.key}`)
                 this.pause()
                 return
             }
@@ -707,7 +709,7 @@ class GEKLanding {
         this.init()
         this.idleTimer = null
         this.isAwake = false
-        this.idleTimeout = 10000 // 8 seconds of inactivity before sleeping
+        this.idleTimeout = 30000 // 30 seconds of inactivity before sleeping
         this.audioManager = new AudioManager()
     }
 
@@ -723,13 +725,8 @@ class GEKLanding {
         // Make audio manager globally accessible
         window.audioManager = this.audioManager
         
-        // Ensure snoring starts even if it didn't start in initSequences
-        setTimeout(() => {
-            if (!this.audioManager.sounds.get('snoring')?.playing) {
-                console.log('🔄 Fallback: Starting snoring sound...')
-                this.startSnoring()
-            }
-        }, 2000)
+        // Audio will be started when user clicks the overlay
+        console.log('🎵 Audio ready - waiting for user interaction')
     }
 
     async loadManifest() {
@@ -827,20 +824,62 @@ class GEKLanding {
     setupEventListeners() {
         window.addEventListener('resize', this.handleResize.bind(this))
         
-        // Only clicks and touches wake up the frog
+        // Handle click to enter overlay
+        const overlay = document.getElementById('click-to-enter-overlay')
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                e.preventDefault()
+                this.handleEnterClick()
+            })
+        }
+        
+        // Only clicks and touches on the main canvas area wake up the frog
         const wakeEvents = ['click', 'touchstart']
         wakeEvents.forEach(event => {
-            document.addEventListener(event, this.handleUserInteraction.bind(this), { passive: true })
+            document.addEventListener(event, (e) => {
+                // Don't wake up if clicking on UI elements
+                if (e.target.closest('#audio-control') || 
+                    e.target.closest('#hotspots') || 
+                    e.target.closest('.hotspot') ||
+                    e.target.closest('#loading-screen') ||
+                    e.target.closest('#click-to-enter-overlay')) {
+                    return
+                }
+                this.handleUserInteraction()
+            }, { passive: true })
         })
+    }
+    
+    handleEnterClick() {
+        console.log('🚀 User clicked to enter - enabling audio and starting experience')
+        
+        // Hide the overlay
+        this.hideClickToEnterOverlay()
+        
+        // Enable audio
+        if (this.audioManager) {
+            this.audioManager.onUserInteraction()
+            // Start snoring immediately
+            this.audioManager.play('snoring')
+        }
+        
+        // Start the idle timer
+        this.resetIdleTimer()
+        
+        // Don't set isAwake here - let the normal interaction flow handle it
+        // The frog should start in sleep state and wake up on first interaction
     }
 
     handleUserInteraction() {
+        console.log('👆 User interaction detected')
+        
         // Enable audio on first interaction
         if (this.audioManager) {
             this.audioManager.onUserInteraction()
         }
         
         if (!this.isAwake) {
+            console.log('😴 Waking up from sleep...')
             this.wakeUp()
         }
         this.resetIdleTimer()
@@ -851,6 +890,7 @@ class GEKLanding {
             clearTimeout(this.idleTimer)
         }
         this.idleTimer = setTimeout(() => {
+            console.log('⏰ Idle timer triggered - going to sleep...')
             this.goToSleep()
         }, this.idleTimeout)
     }
@@ -896,22 +936,40 @@ class GEKLanding {
         this.audioManager.stop('typing')
         
         try {
+            // Play sleep transition first
             await this.sequencePlayer.switchTo('sleepTransition')
             this.sequencePlayer.play()
             
+            // Calculate transition duration more accurately
+            const transitionFrames = this.manifest.sequences.sleepTransition.end - this.manifest.sequences.sleepTransition.start + 1
+            const transitionDuration = (transitionFrames / this.manifest.fps) * 1000
+            
+            console.log(`😴 Sleep transition: ${transitionFrames} frames, ${transitionDuration}ms`)
+            
             // Wait for transition to complete, then switch to sleep and start snoring
-            const transitionDuration = (this.manifest.sequences.sleepTransition.end + 1) / this.manifest.fps * 1000
             setTimeout(async () => {
                 if (!this.isAwake) { // Only switch to sleep if still asleep
+                    console.log('😴 Transition complete, switching to sleep...')
                     await this.sequencePlayer.switchTo('sleep')
                     this.sequencePlayer.play()
                     // Start snoring sound
                     this.audioManager.play('snoring')
                 }
             }, transitionDuration)
+            
+            // Fallback: if transition takes too long, force switch to sleep
+            setTimeout(async () => {
+                if (!this.isAwake && this.sequencePlayer.current?.key === 'sleepTransition') {
+                    console.log('😴 Fallback: forcing switch to sleep...')
+                    await this.sequencePlayer.switchTo('sleep')
+                    this.sequencePlayer.play()
+                    this.audioManager.play('snoring')
+                }
+            }, transitionDuration + 2000) // Add 2 seconds buffer
         } catch (error) {
             console.error('Error during sleep transition:', error)
             // Fallback to sleep if transition fails
+            console.log('😴 Fallback: switching directly to sleep...')
             await this.sequencePlayer.switchTo('sleep')
             this.sequencePlayer.play()
             this.audioManager.play('snoring')
@@ -940,15 +998,17 @@ class GEKLanding {
             // Hide loading screen
             this.hideLoadingScreen()
             
-            // Start snoring immediately after everything is loaded
-            this.startSnoring()
+            // Don't start snoring automatically - wait for user to click overlay
+            console.log('🎬 Experience loaded - waiting for user to click to enter')
             
         } catch (error) {
             console.error('Error initializing sequences:', error)
             // Hide loading screen even if there's an error
             this.hideLoadingScreen()
-            // Still try to start snoring even if there's an error
-            this.startSnoring()
+            // Still try to start snoring even if there's an error, but only if user has interacted
+            if (this.audioManager && this.audioManager.userHasInteracted) {
+                this.startSnoring()
+            }
         }
     }
 
@@ -993,7 +1053,25 @@ class GEKLanding {
             loadingScreen.classList.add('fade-out')
             setTimeout(() => {
                 loadingScreen.style.display = 'none'
+                // Show click to enter overlay after loading screen is hidden
+                this.showClickToEnterOverlay()
             }, 500)
+        }
+    }
+    
+    showClickToEnterOverlay() {
+        const overlay = document.getElementById('click-to-enter-overlay')
+        if (overlay) {
+            overlay.classList.add('show')
+            console.log('🎬 Click to enter overlay shown')
+        }
+    }
+    
+    hideClickToEnterOverlay() {
+        const overlay = document.getElementById('click-to-enter-overlay')
+        if (overlay) {
+            overlay.classList.remove('show')
+            console.log('🎬 Click to enter overlay hidden')
         }
     }
 
