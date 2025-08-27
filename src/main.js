@@ -23,7 +23,7 @@ function initHotspots() {
     })
 }
 
-class SequencePlayer {
+class OptimizedSequencePlayer {
     constructor(params) {
         this.scene = params.scene
         this.camera = params.camera
@@ -32,11 +32,11 @@ class SequencePlayer {
         this.manifest = params.manifest
         this.current = null
         this.texturesCache = new Map()
-        this.clock = 0
+        this.frameTime = 1000 / this.fps
+        this.lastFrameTime = 0
         this.targetPlane = null
         this.isPlaying = false
-        this.frameTime = 1000 / this.fps // Frame time in milliseconds
-        this.lastFrameTime = 0
+        this.loadingQueue = new Map()
         this.options = {
             width: params.width || 3.2,
             height: params.height || 2.4,
@@ -89,10 +89,7 @@ class SequencePlayer {
     _tick = (time, deltaTime) => {
         if (!this.isPlaying || !this.current) return
         
-        // Use performance.now() for more accurate timing
         const currentTime = performance.now()
-        
-        // Check if enough time has passed for the next frame
         if (currentTime - this.lastFrameTime >= this.frameTime) {
             this._advanceFrame()
             this.lastFrameTime = currentTime
@@ -104,24 +101,49 @@ class SequencePlayer {
         const cfg = this.manifest.sequences[key]
         const total = cfg.end - cfg.start + 1
         const frames = new Array(total).fill(0).map((_, i) => this._frameUrl(cfg, cfg.start + i))
+        
         this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
         
         console.log(`Loading sequence: ${key} with ${frames.length} frames`)
         
-        // Preload first few frames immediately, then load the rest
-        await this._preloadSequenceOptimized(frames)
+        // Start playing immediately with first frame
+        await this._loadTexture(frames[0])
         this._setFrameTexture(0)
+        this.isPlaying = true
+        
+        // Preload next 10 frames for smooth playback
+        this._preloadNextFrames(frames, 10)
+        
+        // Start background loading of remaining frames
+        this._backgroundLoad(frames.slice(11))
     }
 
-    play() { 
-        this.isPlaying = true 
-        this.lastFrameTime = performance.now()
+    async _preloadNextFrames(frames, count) {
+        const nextFrames = frames.slice(1, count + 1)
+        await Promise.all(nextFrames.map(url => this._loadTexture(url)))
     }
-    pause() { this.isPlaying = false }
 
-    async switchTo(key) {
-        await this.loadSequence(key)
-        this.play()
+    async _backgroundLoad(frames) {
+        // Load frames in small batches to avoid blocking
+        const batchSize = 3
+        for (let i = 0; i < frames.length; i += batchSize) {
+            const batch = frames.slice(i, i + batchSize)
+            await Promise.all(batch.map(url => this._loadTexture(url)))
+            
+            // Update loading progress
+            const progress = Math.round(((i + batchSize) / frames.length) * 100)
+            this._updateLoadingProgress(progress)
+            
+            // Small delay to keep UI responsive
+            await new Promise(resolve => setTimeout(resolve, 5))
+        }
+    }
+
+    _updateLoadingProgress(progress) {
+        const loadingText = document.querySelector('.loading-text')
+        if (loadingText) {
+            loadingText.textContent = `Loading animations... ${Math.min(progress, 100)}%`
+        }
     }
 
     _advanceFrame() {
@@ -139,6 +161,20 @@ class SequencePlayer {
             this.current.index = next
         }
         this._setFrameTexture(this.current.index)
+        
+        // Preload upcoming frames if we're getting close to unloaded ones
+        if (this.current.index % 5 === 0) {
+            const upcomingFrames = this.current.frames.slice(this.current.index + 1, this.current.index + 10)
+            this._preloadFrames(upcomingFrames)
+        }
+    }
+
+    async _preloadFrames(frames) {
+        frames.forEach(url => {
+            if (!this.texturesCache.has(url)) {
+                this._loadTexture(url)
+            }
+        })
     }
 
     _frameUrl(cfg, num) {
@@ -146,61 +182,37 @@ class SequencePlayer {
         return `${cfg.path}${cfg.pattern.replace('%05d', n)}`
     }
 
-    async _preloadSequenceOptimized(frames) {
-        console.log(`Preloading ${frames.length} frames...`)
-        
-        // Load first 5 frames immediately for instant playback
-        const immediateFrames = frames.slice(0, 5)
-        await Promise.all(immediateFrames.map(url => this._loadTexture(url)))
-        
-        // Load the rest in smaller batches with minimal delays
-        const remainingFrames = frames.slice(5)
-        const batchSize = 3 // Smaller batches for faster perceived loading
-        
-        for (let i = 0; i < remainingFrames.length; i += batchSize) {
-            const batch = remainingFrames.slice(i, i + batchSize)
-            await Promise.all(batch.map(url => this._loadTexture(url)))
-            
-            // Use requestIdleCallback for better performance
-            if (i + batchSize < remainingFrames.length) {
-                await new Promise(resolve => {
-                    if ('requestIdleCallback' in window) {
-                        requestIdleCallback(resolve, { timeout: 1 })
-                    } else {
-                        requestAnimationFrame(resolve)
-                    }
-                })
-            }
-        }
-        console.log('Preloading complete')
-    }
-
     async _loadTexture(url) {
         if (this.texturesCache.has(url)) return this.texturesCache.get(url)
         
-        const loader = new THREE.TextureLoader()
-        return new Promise((resolve, reject) => {
+        // Check if already loading
+        if (this.loadingQueue.has(url)) {
+            return this.loadingQueue.get(url)
+        }
+        
+        const loadPromise = new Promise((resolve, reject) => {
+            const loader = new THREE.TextureLoader()
             loader.load(url, texture => {
-                // Optimize texture settings for performance
+                // Optimize texture settings
                 texture.colorSpace = THREE.SRGBColorSpace
                 texture.minFilter = THREE.LinearFilter
                 texture.magFilter = THREE.LinearFilter
                 texture.generateMipmaps = false
-                texture.flipY = true // Keep default flipping for correct orientation
+                texture.flipY = true
                 texture.premultiplyAlpha = false
                 
-                // Compress texture if possible
-                if (this.renderer.capabilities.isWebGL2) {
-                    texture.format = THREE.RGBAFormat
-                }
-                
                 this.texturesCache.set(url, texture)
+                this.loadingQueue.delete(url)
                 resolve(texture)
             }, undefined, (error) => {
                 console.error(`Failed to load texture: ${url}`, error)
+                this.loadingQueue.delete(url)
                 resolve(null)
             })
         })
+        
+        this.loadingQueue.set(url, loadPromise)
+        return loadPromise
     }
 
     async _setFrameTexture(index) {
@@ -213,6 +225,18 @@ class SequencePlayer {
             this.targetPlane.material.map = texture
             this.targetPlane.material.needsUpdate = true
         }
+    }
+
+    play() { 
+        this.isPlaying = true 
+        this.lastFrameTime = performance.now()
+    }
+    
+    pause() { this.isPlaying = false }
+
+    async switchTo(key) {
+        await this.loadSequence(key)
+        this.play()
     }
 }
 
@@ -384,7 +408,7 @@ class GEKLanding {
     }
 
     async _createBackgroundPlayer() {
-        const player = new SequencePlayer({
+        const player = new OptimizedSequencePlayer({
             scene: this.scene,
             camera: this.camera,
             renderer: this.renderer,
@@ -401,7 +425,7 @@ class GEKLanding {
     }
 
     async _createSequencePlayer() {
-        const player = new SequencePlayer({
+        const player = new OptimizedSequencePlayer({
             scene: this.scene,
             camera: this.camera,
             renderer: this.renderer,
