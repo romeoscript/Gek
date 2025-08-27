@@ -35,6 +35,8 @@ class SequencePlayer {
         this.clock = 0
         this.targetPlane = null
         this.isPlaying = false
+        this.frameTime = 1000 / this.fps // Frame time in milliseconds
+        this.lastFrameTime = 0
         this.options = {
             width: params.width || 3.2,
             height: params.height || 2.4,
@@ -86,12 +88,14 @@ class SequencePlayer {
 
     _tick = (time, deltaTime) => {
         if (!this.isPlaying || !this.current) return
-        const dt = deltaTime / 1000
-        this.clock += dt
-        const frameDuration = 1 / this.fps
-        while (this.clock >= frameDuration) {
-            this.clock -= frameDuration
+        
+        // Use performance.now() for more accurate timing
+        const currentTime = performance.now()
+        
+        // Check if enough time has passed for the next frame
+        if (currentTime - this.lastFrameTime >= this.frameTime) {
             this._advanceFrame()
+            this.lastFrameTime = currentTime
         }
     }
 
@@ -103,13 +107,16 @@ class SequencePlayer {
         this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
         
         console.log(`Loading sequence: ${key} with ${frames.length} frames`)
-        console.log(`First frame URL: ${frames[0]}`)
         
-        await this._ensureWarmCache(frames.slice(0, 10))
+        // Preload first few frames immediately, then load the rest
+        await this._preloadSequenceOptimized(frames)
         this._setFrameTexture(0)
     }
 
-    play() { this.isPlaying = true }
+    play() { 
+        this.isPlaying = true 
+        this.lastFrameTime = performance.now()
+    }
     pause() { this.isPlaying = false }
 
     async switchTo(key) {
@@ -131,10 +138,6 @@ class SequencePlayer {
         } else {
             this.current.index = next
         }
-        if (this.current.index % 10 === 0) {
-            const upcoming = this.current.frames.slice(this.current.index, this.current.index + 20)
-            this._ensureWarmCache(upcoming)
-        }
         this._setFrameTexture(this.current.index)
     }
 
@@ -143,30 +146,73 @@ class SequencePlayer {
         return `${cfg.path}${cfg.pattern.replace('%05d', n)}`
     }
 
-    async _ensureWarmCache(urls) {
-        await Promise.all(urls.map(url => this._loadTexture(url)))
+    async _preloadSequenceOptimized(frames) {
+        console.log(`Preloading ${frames.length} frames...`)
+        
+        // Load first 5 frames immediately for instant playback
+        const immediateFrames = frames.slice(0, 5)
+        await Promise.all(immediateFrames.map(url => this._loadTexture(url)))
+        
+        // Load the rest in smaller batches with minimal delays
+        const remainingFrames = frames.slice(5)
+        const batchSize = 3 // Smaller batches for faster perceived loading
+        
+        for (let i = 0; i < remainingFrames.length; i += batchSize) {
+            const batch = remainingFrames.slice(i, i + batchSize)
+            await Promise.all(batch.map(url => this._loadTexture(url)))
+            
+            // Use requestIdleCallback for better performance
+            if (i + batchSize < remainingFrames.length) {
+                await new Promise(resolve => {
+                    if ('requestIdleCallback' in window) {
+                        requestIdleCallback(resolve, { timeout: 1 })
+                    } else {
+                        requestAnimationFrame(resolve)
+                    }
+                })
+            }
+        }
+        console.log('Preloading complete')
     }
 
     async _loadTexture(url) {
         if (this.texturesCache.has(url)) return this.texturesCache.get(url)
+        
         const loader = new THREE.TextureLoader()
         return new Promise((resolve, reject) => {
             loader.load(url, texture => {
+                // Optimize texture settings for performance
                 texture.colorSpace = THREE.SRGBColorSpace
+                texture.minFilter = THREE.LinearFilter
+                texture.magFilter = THREE.LinearFilter
+                texture.generateMipmaps = false
+                texture.flipY = true // Keep default flipping for correct orientation
+                texture.premultiplyAlpha = false
+                
+                // Compress texture if possible
+                if (this.renderer.capabilities.isWebGL2) {
+                    texture.format = THREE.RGBAFormat
+                }
+                
                 this.texturesCache.set(url, texture)
                 resolve(texture)
             }, undefined, (error) => {
                 console.error(`Failed to load texture: ${url}`, error)
-                reject(error)
+                resolve(null)
             })
         })
     }
 
     async _setFrameTexture(index) {
+        if (!this.current || !this.current.frames[index]) return
+        
         const url = this.current.frames[index]
         const texture = await this._loadTexture(url)
-        this.targetPlane.material.map = texture
-        this.targetPlane.material.needsUpdate = true
+        
+        if (texture && this.targetPlane && this.targetPlane.material) {
+            this.targetPlane.material.map = texture
+            this.targetPlane.material.needsUpdate = true
+        }
     }
 }
 
@@ -198,18 +244,36 @@ class GEKLanding {
 
         this.scene = new THREE.Scene()
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
-        this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
+        
+        // Optimize renderer for performance
+        this.renderer = new THREE.WebGLRenderer({ 
+            canvas, 
+            alpha: true, 
+            antialias: false, // Disable antialiasing for better performance
+            powerPreference: "high-performance",
+            stencil: false,
+            depth: false // We don't need depth buffer for 2D sprites
+        })
         this.renderer.setSize(window.innerWidth, window.innerHeight)
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)) // Limit pixel ratio for better performance
+        this.renderer.setClearColor(0x000000, 0)
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace
 
         const ambient = new THREE.AmbientLight(0x88ffcc, 0.6)
         this.scene.add(ambient)
 
         this.camera.position.set(0, 0, 5)
 
-        const renderLoop = () => {
+        // Optimized render loop
+        let lastTime = 0
+        const renderLoop = (currentTime) => {
             requestAnimationFrame(renderLoop)
-            this.renderer.render(this.scene, this.camera)
+            
+            // Only render if something changed or at regular intervals
+            if (currentTime - lastTime > 16) { // ~60fps max
+                this.renderer.render(this.scene, this.camera)
+                lastTime = currentTime
+            }
         }
         renderLoop()
     }
@@ -243,33 +307,84 @@ class GEKLanding {
     }
 
     async wakeUp() {
+        if (this.isAwake) return // Prevent multiple wake calls
         this.isAwake = true
-        await this.sequencePlayer.switchTo('wake')
-        this.sequencePlayer.play()
         
-        // Wait for wake animation to complete, then switch to idle
-        const wakeDuration = (this.manifest.sequences.wake.end + 1) / this.manifest.fps * 1000
-        setTimeout(async () => {
+        try {
+            await this.sequencePlayer.switchTo('wake')
+            this.sequencePlayer.play()
+            
+            // Wait for wake animation to complete, then switch to idle
+            const wakeDuration = (this.manifest.sequences.wake.end + 1) / this.manifest.fps * 1000
+            setTimeout(async () => {
+                if (this.isAwake) { // Only switch to idle if still awake
+                    await this.sequencePlayer.switchTo('idle')
+                    this.sequencePlayer.play()
+                }
+            }, wakeDuration)
+        } catch (error) {
+            console.error('Error during wake up:', error)
+            // Fallback to idle if wake animation fails
             await this.sequencePlayer.switchTo('idle')
             this.sequencePlayer.play()
-        }, wakeDuration)
+        }
     }
 
     async goToSleep() {
+        if (!this.isAwake) return // Prevent multiple sleep calls
         this.isAwake = false
-        await this.sequencePlayer.switchTo('sleepTransition')
-        this.sequencePlayer.play()
         
-        // Wait for transition to complete, then switch to sleep
-        const transitionDuration = (this.manifest.sequences.sleepTransition.end + 1) / this.manifest.fps * 1000
-        setTimeout(async () => {
+        try {
+            await this.sequencePlayer.switchTo('sleepTransition')
+            this.sequencePlayer.play()
+            
+            // Wait for transition to complete, then switch to sleep
+            const transitionDuration = (this.manifest.sequences.sleepTransition.end + 1) / this.manifest.fps * 1000
+            setTimeout(async () => {
+                if (!this.isAwake) { // Only switch to sleep if still asleep
+                    await this.sequencePlayer.switchTo('sleep')
+                    this.sequencePlayer.play()
+                }
+            }, transitionDuration)
+        } catch (error) {
+            console.error('Error during sleep transition:', error)
+            // Fallback to sleep if transition fails
             await this.sequencePlayer.switchTo('sleep')
             this.sequencePlayer.play()
-        }, transitionDuration)
+        }
     }
 
     async initSequences() {
-        this.backgroundPlayer = new SequencePlayer({
+        try {
+            // Initialize both players in parallel for faster loading
+            const [backgroundPlayer, sequencePlayer] = await Promise.all([
+                this._createBackgroundPlayer(),
+                this._createSequencePlayer()
+            ])
+            
+            this.backgroundPlayer = backgroundPlayer
+            this.sequencePlayer = sequencePlayer
+            
+            // Start both animations
+            this.backgroundPlayer.play()
+            this.sequencePlayer.play()
+            this.sequencePlayer.alignToBottom(0)
+            
+            // Start the idle timer
+            this.resetIdleTimer()
+            
+            // Hide loading screen
+            this.hideLoadingScreen()
+            
+        } catch (error) {
+            console.error('Error initializing sequences:', error)
+            // Hide loading screen even if there's an error
+            this.hideLoadingScreen()
+        }
+    }
+
+    async _createBackgroundPlayer() {
+        const player = new SequencePlayer({
             scene: this.scene,
             camera: this.camera,
             renderer: this.renderer,
@@ -281,10 +396,12 @@ class GEKLanding {
             zIndex: -1,
             coverViewport: true
         })
-        await this.backgroundPlayer.switchTo('background')
-        this.backgroundPlayer.play()
+        await player.switchTo('background')
+        return player
+    }
 
-        this.sequencePlayer = new SequencePlayer({
+    async _createSequencePlayer() {
+        const player = new SequencePlayer({
             scene: this.scene,
             camera: this.camera,
             renderer: this.renderer,
@@ -297,11 +414,18 @@ class GEKLanding {
             stickBottom: true,
             bottomPadding: 0
         })
-        
-        // Start with the frog asleep
-        await this.sequencePlayer.switchTo('sleep')
-        this.sequencePlayer.play()
-        this.sequencePlayer.alignToBottom(0)
+        await player.switchTo('sleep')
+        return player
+    }
+
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loading-screen')
+        if (loadingScreen) {
+            loadingScreen.classList.add('fade-out')
+            setTimeout(() => {
+                loadingScreen.style.display = 'none'
+            }, 500)
+        }
     }
 
     handleResize() {
