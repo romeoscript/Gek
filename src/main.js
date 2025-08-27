@@ -323,36 +323,37 @@ function showMobileCopyNotification(message) {
     notification.textContent = message
     notification.style.cssText = `
         position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        top: 16px;
+        right: 16px;
         background: rgba(0, 0, 0, 0.9);
         color: #00ff88;
-        padding: 15px 25px;
-        border-radius: 10px;
+        padding: 12px 16px;
+        border-radius: 8px;
         font-family: 'Rajdhani', sans-serif;
         font-weight: 600;
-        font-size: 16px;
+        font-size: 14px;
         z-index: 10000;
-        border: 2px solid #00ff88;
-        box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        border: 1px solid rgba(0, 255, 136, 0.6);
+        box-shadow: 0 6px 18px rgba(0, 255, 136, 0.25);
+        transform: translateX(120%);
+        transition: transform 0.25s ease;
     `
     
     document.body.appendChild(notification)
     
-    // Animate in
-    setTimeout(() => {
-        notification.style.opacity = '1'
-    }, 100)
+    // Slide in
+    requestAnimationFrame(() => {
+        notification.style.transform = 'translateX(0)'
+    })
     
     // Remove after 2 seconds
     setTimeout(() => {
-        notification.style.opacity = '0'
+        notification.style.transform = 'translateX(120%)'
         setTimeout(() => {
-            document.body.removeChild(notification)
-        }, 300)
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification)
+            }
+        }, 250)
     }, 2000)
 }
 
