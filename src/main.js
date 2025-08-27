@@ -894,15 +894,13 @@ class GEKLanding {
         // Enable audio
         if (this.audioManager) {
             this.audioManager.onUserInteraction()
-            // Start snoring immediately
+            // Start snoring immediately since frog is already sleeping
             this.audioManager.play('snoring')
         }
         
-        // Start the idle timer
-        this.resetIdleTimer()
-        
-        // Don't set isAwake here - let the normal interaction flow handle it
-        // The frog should start in sleep state and wake up on first interaction
+        // Don't start the idle timer yet - frog should stay asleep until user interacts
+        // The frog starts in sleep state and will wake up on first interaction
+        console.log('😴 Frog is sleeping - click anywhere to wake it up')
     }
 
     handleUserInteraction() {
@@ -917,6 +915,8 @@ class GEKLanding {
             console.log('😴 Waking up from sleep...')
             this.wakeUp()
         }
+        
+        // Start/reset the idle timer
         this.resetIdleTimer()
     }
 

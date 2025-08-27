@@ -553,10 +553,12 @@ button:focus, a:focus {
 
 /* Abstract middle-right monitor */
 .hotspot.abstract { 
-    top: 27%; 
-    left: 44.5%; 
-    width: 15%; 
-    height: 11%; 
-    --base-transform: rotate(0.08deg) skewX(-5deg); 
+    top: 66%; 
+    left: 33%; 
+    width: 11%; 
+    height: 6%; 
+    /* border: 1px solid red; */
+    --base-transform: rotate(-10.08deg) ; 
     transform-origin: 50% 50%; 
+    
 }
