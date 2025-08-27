@@ -104,7 +104,7 @@ class OptimizedSequencePlayer {
         
         this.current = { key, cfg, index: 0, frames, loop: !!cfg.loop }
         
-        console.log(`Loading sequence: ${key} with ${frames.length} frames`)
+        // console.log(`Loading sequence: ${key} with ${frames.length} frames`)
         
         // Start playing immediately with first frame
         await this._loadTexture(frames[0])
@@ -178,6 +178,12 @@ class OptimizedSequencePlayer {
     }
 
     _frameUrl(cfg, num) {
+        // If we have actual frame URLs, use them directly
+        if (cfg.frames && cfg.frames[num]) {
+            return cfg.frames[num];
+        }
+        
+        // Fallback to pattern-based URL construction
         const n = String(num).padStart(cfg.pad, '0')
         return `${cfg.path}${cfg.pattern.replace('%05d', n)}`
     }
@@ -245,7 +251,7 @@ class GEKLanding {
         this.init()
         this.idleTimer = null
         this.isAwake = false
-        this.idleTimeout = 8000 // 8 seconds of inactivity before sleeping
+        this.idleTimeout = 10000 // 8 seconds of inactivity before sleeping
     }
 
     async init() {
@@ -258,7 +264,7 @@ class GEKLanding {
     }
 
     async loadManifest() {
-        const res = await fetch('/animations/manifest.json')
+        const res = await fetch('/animations/manifest-cloudinary.json')
         this.manifest = await res.json()
     }
 
