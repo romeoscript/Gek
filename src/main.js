@@ -767,6 +767,7 @@ class GEKLanding {
     async loadManifest() {
         // Try to load 50% manifest first for optimal performance
         try {
+            // const res = await fetch('/animations/manifest-new-bg.json')
             const res = await fetch('/animations/manifest-50percent.json')
             if (res.ok) {
                 this.manifest = await res.json()
