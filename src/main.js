@@ -40,6 +40,31 @@ function initHotspots() {
 
 // Initialize mobile experience
 function initMobileExperience() {
+    // Handle mobile background image loading
+    const mobileBackground = document.querySelector('.mobile-background')
+    if (mobileBackground) {
+        console.log('📱 Mobile background element found, setting up loading handlers')
+        
+        // Create a test image to check if the background image loads
+        const testImage = new Image()
+        testImage.onload = () => {
+            console.log('✅ Mobile background image loaded successfully')
+            mobileBackground.classList.add('loaded')
+        }
+        
+        testImage.onerror = (e) => {
+            console.error('❌ Mobile background image failed to load:', e)
+            console.warn('Mobile background image failed to load, using fallback background')
+            mobileBackground.style.backgroundImage = 'none'
+            document.querySelector('.mobile-experience').style.background = 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)'
+        }
+        
+        // Try to load the image
+        testImage.src = '/animations/mobile.webp'
+    } else {
+        console.error('❌ Mobile background element not found')
+    }
+    
     const mobileCopyBtn = document.getElementById('mobile-copy-btn')
     if (mobileCopyBtn) {
         mobileCopyBtn.addEventListener('click', (e) => {
@@ -672,10 +697,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if we're on mobile - use more reliable detection
     const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     
-    // Force desktop experience for now to debug
-    const forceDesktop = true
+    console.log('🔍 Device detection:', {
+        width: window.innerWidth,
+        userAgent: navigator.userAgent,
+        isMobile: isMobile
+    })
     
-    if (isMobile && !forceDesktop) {
+    if (isMobile) {
         // Initialize mobile experience
         initMobileExperience()
         console.log('📱 Mobile experience initialized')
