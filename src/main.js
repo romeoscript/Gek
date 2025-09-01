@@ -266,283 +266,16 @@ function initHotspots() {
 
 // Initialize mobile experience
 function initMobileExperience() {
-    console.log('📱 Initializing mobile experience with animated background...')
+    console.log('📱 Initializing mobile experience with full functionality...')
     
-    // Initialize mobile animations using the mobile manifest
-    initMobileAnimations()
-    
-    // Handle mobile background image loading as fallback
-    const mobileBackground = document.querySelector('.mobile-background')
-    if (mobileBackground) {
-        console.log('📱 Mobile background element found, setting up loading handlers')
-        
-        // Create a test image to check if the background image loads
-        const testImage = new Image()
-        testImage.onload = () => {
-            console.log('✅ Mobile background image loaded successfully')
-            mobileBackground.classList.add('loaded')
-        }
-        
-        testImage.onerror = (e) => {
-            console.error('❌ Mobile background image failed to load:', e)
-            console.warn('Mobile background image failed to load, using fallback background')
-            mobileBackground.style.backgroundImage = 'none'
-            document.querySelector('.mobile-experience').style.background = 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)'
-        }
-        
-        // Try to load the image
-        testImage.src = '/animations/mobile.webp'
-    } else {
-        console.error('❌ Mobile background element not found')
-    }
-    
-    const mobileCopyBtn = document.getElementById('mobile-copy-btn')
-    if (mobileCopyBtn) {
-        mobileCopyBtn.addEventListener('click', (e) => {
-            e.preventDefault()
-            const contractAddress = '0xbe449b1d1b51bf0d3c7cfbd9ef8ef6b121e71da1'
-            
-            navigator.clipboard.writeText(contractAddress).then(() => {
-                // Show mobile-specific notification
-                showMobileCopyNotification('Contract address copied!')
-                
-                // Change button text temporarily
-                const originalText = mobileCopyBtn.textContent
-                mobileCopyBtn.textContent = 'COPIED!'
-                mobileCopyBtn.style.background = 'linear-gradient(45deg, #00cc6a, #00ff88)'
-                
-                setTimeout(() => {
-                    mobileCopyBtn.textContent = originalText
-                    mobileCopyBtn.style.background = 'transparent'
-                }, 2000)
-            }).catch(err => {
-                console.error('Failed to copy contract address:', err)
-                showMobileCopyNotification('Failed to copy address')
-            })
-        })
-    }
+    // Instead of simple mobile experience, use the full GEKLanding class with mobile manifest
+    const gekLanding = new GEKLanding()
+    console.log('📱 Mobile experience initialized with full functionality')
 }
 
-// Initialize mobile animations using the mobile manifest
-async function initMobileAnimations() {
-    try {
-        console.log('📱 Loading mobile animations...')
-        
-        // Load the mobile manifest
-        const res = await fetch('/animations/manifest-mobile.json')
-        if (!res.ok) {
-            throw new Error('Failed to load mobile manifest')
-        }
-        
-        const mobileManifest = await res.json()
-        console.log('✅ Mobile manifest loaded:', mobileManifest.name)
-        
-        // Create animated background using the mobile background frames
-        const mobileBackground = document.querySelector('.mobile-background')
-        if (mobileBackground && mobileManifest.sequences.background) {
-            const backgroundFrames = mobileManifest.sequences.background.frames
-            const fps = mobileManifest.sequences.background.fps || 30
-            const frameDelay = 1000 / fps
-            
-            console.log(`📱 Setting up mobile background animation with ${backgroundFrames.length} frames at ${fps}fps`)
-            
-            let currentFrame = 0
-            
-            // Create the animation loop
-            const animateBackground = () => {
-                if (backgroundFrames[currentFrame]) {
-                    // Use the frame URL directly (now includes .webp extension)
-                    const frameUrl = backgroundFrames[currentFrame]
-                    mobileBackground.style.backgroundImage = `url('${frameUrl}')`
-                    mobileBackground.style.backgroundSize = 'cover'
-                    mobileBackground.style.backgroundPosition = 'center'
-                    mobileBackground.style.backgroundRepeat = 'no-repeat'
-                    
-                    currentFrame = (currentFrame + 1) % backgroundFrames.length
-                }
-                
-                setTimeout(animateBackground, frameDelay)
-            }
-            
-            // Start the animation
-            animateBackground()
-            console.log('🎬 Mobile background animation started')
-            
-        } else {
-            console.warn('⚠️ Mobile background element or animation not found')
-        }
 
-        // Set up mobile animation system
-        if (mobileManifest.sequences) {
-            console.log('🎬 Setting up complete mobile animation system...')
-            
-            // Store animation state
-            window.mobileAnimationState = {
-                currentAnimation: 'background',
-                isSleeping: false,
-                lastActivity: Date.now(),
-                idleTimeout: null
-            }
 
-            // Set up idle detection
-            const resetIdleTimer = () => {
-                window.mobileAnimationState.lastActivity = Date.now()
-                if (window.mobileAnimationState.idleTimeout) {
-                    clearTimeout(window.mobileAnimationState.idleTimeout)
-                }
-                // Go to sleep after 30 seconds of inactivity
-                window.mobileAnimationState.idleTimeout = setTimeout(() => {
-                    if (!window.mobileAnimationState.isSleeping) {
-                        console.log('😴 Mobile going to sleep...')
-                        window.mobileAnimationState.isSleeping = true
-                        playMobileAnimation('sleep')
-                    }
-                }, 30000)
-            }
 
-            // Reset timer on user interaction
-            const userActivityEvents = ['touchstart', 'touchmove', 'touchend', 'scroll', 'click']
-            userActivityEvents.forEach(event => {
-                document.addEventListener(event, resetIdleTimer, { passive: true })
-            })
-
-            // Function to play different animations
-            window.playMobileAnimation = (animationType) => {
-                const sequence = mobileManifest.sequences[animationType]
-                if (!sequence || !sequence.frames) {
-                    console.warn(`⚠️ Animation sequence '${animationType}' not found`)
-                    return
-                }
-
-                console.log(`🎬 Playing mobile animation: ${animationType} (${sequence.frames.length} frames)`)
-                
-                // Stop current animation if different
-                if (window.mobileAnimationState.currentAnimation !== animationType) {
-                    window.mobileAnimationState.currentAnimation = animationType
-                    
-                    // Update background with new animation
-                    if (mobileBackground) {
-                        let frameIndex = 0
-                        const fps = sequence.fps || 30 // Get fps from sequence or default to 30
-                        const frameDelay = 1000 / fps
-                        
-                        const animateSequence = () => {
-                            if (sequence.frames[frameIndex]) {
-                                const frameUrl = sequence.frames[frameIndex]
-                                mobileBackground.style.backgroundImage = `url('${frameUrl}')`
-                                mobileBackground.style.backgroundSize = 'cover'
-                                mobileBackground.style.backgroundPosition = 'center'
-                                mobileBackground.style.backgroundRepeat = 'no-repeat'
-                                
-                                frameIndex = (frameIndex + 1) % sequence.frames.length
-                                
-                                // If it's a looping animation, continue
-                                if (sequence.loop || animationType === 'idle') {
-                                    setTimeout(animateSequence, frameDelay)
-                                } else {
-                                    // For non-looping animations, return to idle after completion
-                                    setTimeout(() => {
-                                        if (window.mobileAnimationState.isSleeping) {
-                                            playMobileAnimation('idle')
-                                        } else {
-                                            playMobileAnimation('background')
-                                        }
-                                    }, frameDelay)
-                                }
-                            }
-                        }
-                        
-                        animateSequence()
-                    }
-                }
-            }
-
-            // Start with background animation
-            window.playMobileAnimation('background')
-            
-            // Set up idle animation after a delay
-            setTimeout(() => {
-                if (!window.mobileAnimationState.isSleeping) {
-                    console.log('🔄 Switching to idle animation...')
-                    window.playMobileAnimation('idle')
-                }
-            }, 5000) // Switch to idle after 5 seconds
-
-            // Set up wake up detection
-            const handleWakeUp = () => {
-                if (window.mobileAnimationState.isSleeping) {
-                    console.log('🌅 Mobile waking up...')
-                    window.mobileAnimationState.isSleeping = false
-                    
-                    // Play wake up transition
-                    if (mobileManifest.sequences.wake) {
-                        playMobileAnimation('wake')
-                    } else {
-                        // If no wake animation, go directly to background
-                        playMobileAnimation('background')
-                    }
-                    
-                    // Reset idle timer
-                    resetIdleTimer()
-                }
-            }
-
-            // Listen for wake up events
-            userActivityEvents.forEach(event => {
-                document.addEventListener(event, handleWakeUp, { passive: true })
-            })
-
-            console.log('✅ Complete mobile animation system initialized')
-            
-        } else {
-            console.warn('⚠️ Mobile manifest sequences not found')
-        }
-        
-    } catch (error) {
-        console.error('❌ Failed to initialize mobile animations:', error)
-        console.log('📱 Falling back to static mobile background')
-    }
-}
-
-// Function to show mobile copy notification
-function showMobileCopyNotification(message) {
-    const notification = document.createElement('div')
-    notification.textContent = message
-    notification.style.cssText = `
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        background: rgba(0, 0, 0, 0.9);
-        color: #00ff88;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-family: 'Rajdhani', sans-serif;
-        font-weight: 600;
-        font-size: 14px;
-        z-index: 10000;
-        border: 1px solid rgba(0, 255, 136, 0.6);
-        box-shadow: 0 6px 18px rgba(0, 255, 136, 0.25);
-        transform: translateX(120%);
-        transition: transform 0.25s ease;
-    `
-    
-    document.body.appendChild(notification)
-    
-    // Slide in
-    requestAnimationFrame(() => {
-        notification.style.transform = 'translateX(0)'
-    })
-    
-    // Remove after 2 seconds
-    setTimeout(() => {
-        notification.style.transform = 'translateX(120%)'
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification)
-            }
-        }, 250)
-    }, 2000)
-}
 
 // Function to show copy notification
 function showCopyNotification(message) {
@@ -957,7 +690,7 @@ class GEKLanding {
         const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         
         if (isMobile) {
-            // Load mobile manifest for mobile devices
+            // Always load mobile manifest for mobile devices
             try {
                 const res = await fetch('/animations/manifest-mobile.json')
                 if (res.ok) {
@@ -970,8 +703,8 @@ class GEKLanding {
                     throw new Error('Mobile manifest not found')
                 }
             } catch (error) {
-                console.log('📥 Mobile manifest not found, falling back to desktop manifest...')
-                await this.loadDesktopManifest()
+                console.error('❌ Failed to load mobile manifest:', error)
+                throw error // Don't fall back to desktop manifest on mobile
             }
         } else {
             // Load desktop manifest for desktop devices
