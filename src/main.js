@@ -266,7 +266,12 @@ function initHotspots() {
 
 // Initialize mobile experience
 function initMobileExperience() {
-    // Handle mobile background image loading
+    console.log('📱 Initializing mobile experience with animated background...')
+    
+    // Initialize mobile animations using the mobile manifest
+    initMobileAnimations()
+    
+    // Handle mobile background image loading as fallback
     const mobileBackground = document.querySelector('.mobile-background')
     if (mobileBackground) {
         console.log('📱 Mobile background element found, setting up loading handlers')
@@ -315,6 +320,187 @@ function initMobileExperience() {
                 showMobileCopyNotification('Failed to copy address')
             })
         })
+    }
+}
+
+// Initialize mobile animations using the mobile manifest
+async function initMobileAnimations() {
+    try {
+        console.log('📱 Loading mobile animations...')
+        
+        // Load the mobile manifest
+        const res = await fetch('/animations/manifest-mobile.json')
+        if (!res.ok) {
+            throw new Error('Failed to load mobile manifest')
+        }
+        
+        const mobileManifest = await res.json()
+        console.log('✅ Mobile manifest loaded:', mobileManifest.name)
+        
+        // Create animated background using the mobile background frames
+        const mobileBackground = document.querySelector('.mobile-background')
+        if (mobileBackground && mobileManifest.sequences.background) {
+            const backgroundFrames = mobileManifest.sequences.background.frames
+            const fps = mobileManifest.sequences.background.fps || 30
+            const frameDelay = 1000 / fps
+            
+            console.log(`📱 Setting up mobile background animation with ${backgroundFrames.length} frames at ${fps}fps`)
+            
+            let currentFrame = 0
+            
+            // Create the animation loop
+            const animateBackground = () => {
+                if (backgroundFrames[currentFrame]) {
+                    // Use the frame URL directly (now includes .webp extension)
+                    const frameUrl = backgroundFrames[currentFrame]
+                    mobileBackground.style.backgroundImage = `url('${frameUrl}')`
+                    mobileBackground.style.backgroundSize = 'cover'
+                    mobileBackground.style.backgroundPosition = 'center'
+                    mobileBackground.style.backgroundRepeat = 'no-repeat'
+                    
+                    currentFrame = (currentFrame + 1) % backgroundFrames.length
+                }
+                
+                setTimeout(animateBackground, frameDelay)
+            }
+            
+            // Start the animation
+            animateBackground()
+            console.log('🎬 Mobile background animation started')
+            
+        } else {
+            console.warn('⚠️ Mobile background element or animation not found')
+        }
+
+        // Set up mobile animation system
+        if (mobileManifest.sequences) {
+            console.log('🎬 Setting up complete mobile animation system...')
+            
+            // Store animation state
+            window.mobileAnimationState = {
+                currentAnimation: 'background',
+                isSleeping: false,
+                lastActivity: Date.now(),
+                idleTimeout: null
+            }
+
+            // Set up idle detection
+            const resetIdleTimer = () => {
+                window.mobileAnimationState.lastActivity = Date.now()
+                if (window.mobileAnimationState.idleTimeout) {
+                    clearTimeout(window.mobileAnimationState.idleTimeout)
+                }
+                // Go to sleep after 30 seconds of inactivity
+                window.mobileAnimationState.idleTimeout = setTimeout(() => {
+                    if (!window.mobileAnimationState.isSleeping) {
+                        console.log('😴 Mobile going to sleep...')
+                        window.mobileAnimationState.isSleeping = true
+                        playMobileAnimation('sleep')
+                    }
+                }, 30000)
+            }
+
+            // Reset timer on user interaction
+            const userActivityEvents = ['touchstart', 'touchmove', 'touchend', 'scroll', 'click']
+            userActivityEvents.forEach(event => {
+                document.addEventListener(event, resetIdleTimer, { passive: true })
+            })
+
+            // Function to play different animations
+            window.playMobileAnimation = (animationType) => {
+                const sequence = mobileManifest.sequences[animationType]
+                if (!sequence || !sequence.frames) {
+                    console.warn(`⚠️ Animation sequence '${animationType}' not found`)
+                    return
+                }
+
+                console.log(`🎬 Playing mobile animation: ${animationType} (${sequence.frames.length} frames)`)
+                
+                // Stop current animation if different
+                if (window.mobileAnimationState.currentAnimation !== animationType) {
+                    window.mobileAnimationState.currentAnimation = animationType
+                    
+                    // Update background with new animation
+                    if (mobileBackground) {
+                        let frameIndex = 0
+                        const fps = sequence.fps || 30 // Get fps from sequence or default to 30
+                        const frameDelay = 1000 / fps
+                        
+                        const animateSequence = () => {
+                            if (sequence.frames[frameIndex]) {
+                                const frameUrl = sequence.frames[frameIndex]
+                                mobileBackground.style.backgroundImage = `url('${frameUrl}')`
+                                mobileBackground.style.backgroundSize = 'cover'
+                                mobileBackground.style.backgroundPosition = 'center'
+                                mobileBackground.style.backgroundRepeat = 'no-repeat'
+                                
+                                frameIndex = (frameIndex + 1) % sequence.frames.length
+                                
+                                // If it's a looping animation, continue
+                                if (sequence.loop || animationType === 'idle') {
+                                    setTimeout(animateSequence, frameDelay)
+                                } else {
+                                    // For non-looping animations, return to idle after completion
+                                    setTimeout(() => {
+                                        if (window.mobileAnimationState.isSleeping) {
+                                            playMobileAnimation('idle')
+                                        } else {
+                                            playMobileAnimation('background')
+                                        }
+                                    }, frameDelay)
+                                }
+                            }
+                        }
+                        
+                        animateSequence()
+                    }
+                }
+            }
+
+            // Start with background animation
+            window.playMobileAnimation('background')
+            
+            // Set up idle animation after a delay
+            setTimeout(() => {
+                if (!window.mobileAnimationState.isSleeping) {
+                    console.log('🔄 Switching to idle animation...')
+                    window.playMobileAnimation('idle')
+                }
+            }, 5000) // Switch to idle after 5 seconds
+
+            // Set up wake up detection
+            const handleWakeUp = () => {
+                if (window.mobileAnimationState.isSleeping) {
+                    console.log('🌅 Mobile waking up...')
+                    window.mobileAnimationState.isSleeping = false
+                    
+                    // Play wake up transition
+                    if (mobileManifest.sequences.wake) {
+                        playMobileAnimation('wake')
+                    } else {
+                        // If no wake animation, go directly to background
+                        playMobileAnimation('background')
+                    }
+                    
+                    // Reset idle timer
+                    resetIdleTimer()
+                }
+            }
+
+            // Listen for wake up events
+            userActivityEvents.forEach(event => {
+                document.addEventListener(event, handleWakeUp, { passive: true })
+            })
+
+            console.log('✅ Complete mobile animation system initialized')
+            
+        } else {
+            console.warn('⚠️ Mobile manifest sequences not found')
+        }
+        
+    } catch (error) {
+        console.error('❌ Failed to initialize mobile animations:', error)
+        console.log('📱 Falling back to static mobile background')
     }
 }
 
@@ -767,6 +953,33 @@ class GEKLanding {
     }
 
     async loadManifest() {
+        // Check if we're on mobile to load appropriate manifest
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        
+        if (isMobile) {
+            // Load mobile manifest for mobile devices
+            try {
+                const res = await fetch('/animations/manifest-mobile.json')
+                if (res.ok) {
+                    this.manifest = await res.json()
+                    console.log('📱 Loaded mobile manifest with optimized frame counts')
+                    console.log(`   Background: ${this.manifest.sequences.background?.fileCount || 0} frames`)
+                    console.log(`   Idle Loop: ${this.manifest.sequences.idle?.fileCount || 0} frames`)
+                    console.log(`   Sleep Cycle: ${this.manifest.sequences.sleep?.fileCount || 0} frames`)
+                } else {
+                    throw new Error('Mobile manifest not found')
+                }
+            } catch (error) {
+                console.log('📥 Mobile manifest not found, falling back to desktop manifest...')
+                await this.loadDesktopManifest()
+            }
+        } else {
+            // Load desktop manifest for desktop devices
+            await this.loadDesktopManifest()
+        }
+    }
+
+    async loadDesktopManifest() {
         // Try to load 50% manifest first for optimal performance
         try {
             // const res = await fetch('/animations/manifest-new-bg.json')

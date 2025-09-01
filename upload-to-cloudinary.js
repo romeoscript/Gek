@@ -16,14 +16,18 @@ cloudinary.v2.config({
 // Function to upload a single file
 async function uploadFile(filePath, folder) {
   try {
+    // Use gek-animations-mobile for mobile folders, gek-animations for others
+    const baseFolder = folder.startsWith('mobile/') ? 'gek-animations-mobile' : 'gek-animations';
+    const folderPath = folder.startsWith('mobile/') ? folder.replace('mobile/', '') : folder;
+    
     const result = await cloudinary.v2.uploader.upload(filePath, {
-      folder: `gek-animations/${folder}`,
+      folder: `${baseFolder}/${folderPath}`,
       resource_type: 'image',
       format: 'webp',
       quality: 'auto',
       fetch_format: 'auto'
     });
-    console.log(`✅ Uploaded: ${path.basename(filePath)}`);
+    console.log(`✅ Uploaded: ${path.basename(filePath)} to ${baseFolder}/${folderPath}`);
     return result;
   } catch (error) {
     console.error(`❌ Failed to upload ${filePath}:`, error.message);
@@ -60,10 +64,26 @@ async function uploadAllAnimations() {
   console.log('🚀 Starting Cloudinary Upload...\n');
   
   const animationsDir = path.join(__dirname, 'public', 'animations');
-  const folders = fs.readdirSync(animationsDir)
-    .filter(item => fs.statSync(path.join(animationsDir, item)).isDirectory());
+  const mobileDir = path.join(__dirname, 'public', 'animations', 'mobile');
   
   let totalUploaded = 0;
+  
+  // Upload mobile animations first
+  if (fs.existsSync(mobileDir)) {
+    console.log('📱 Uploading mobile animations...');
+    const mobileFolders = fs.readdirSync(mobileDir)
+      .filter(item => fs.statSync(path.join(mobileDir, item)).isDirectory());
+    
+    for (const folder of mobileFolders) {
+      const folderPath = path.join(mobileDir, folder);
+      const uploaded = await uploadDirectory(folderPath, `mobile/${folder}`);
+      totalUploaded += uploaded;
+    }
+  }
+  
+  // Upload regular animations
+  const folders = fs.readdirSync(animationsDir)
+    .filter(item => fs.statSync(path.join(animationsDir, item)).isDirectory() && item !== 'mobile');
   
   for (const folder of folders) {
     const folderPath = path.join(animationsDir, folder);
