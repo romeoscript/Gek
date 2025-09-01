@@ -396,6 +396,19 @@
         background: rgba(0, 255, 136) !important;
         border: 2px dashed rgba(0, 255, 136, 0.5) !important;
       }
+      .hotspot.telegram{
+        bottom: 5%;
+        left: 12%;
+        padding: 10px;
+        border-radius: 10px;
+        transform-origin: 50% 50%;
+        color: #fff !important;
+      }
+      .hotspot.telegram img{
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+      }
 
       /* Audio Control Button */
       .audio-control {
@@ -504,13 +517,28 @@
         <div class="mobile-logo" id="mobile-copy-btn">COPY CA</div>
       </div>
       <div class="mobile-Logos">
-        <a href="https://dexscreener.com/abstract/0xbE449B1D1b51BF0D3c7Cfbd9Ef8eF6b121e71Da1" target="_blank" rel="noopener noreferrer" title="Dexscreener">
+        <a
+          href="https://dexscreener.com/abstract/0xbE449B1D1b51BF0D3c7Cfbd9Ef8eF6b121e71Da1"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Dexscreener"
+        >
           <img src="/animations/dexscreener.png" alt="Dexscreener" />
         </a>
-        <a href="https://x.com/gekmeme" target="_blank" rel="noopener noreferrer" title="GEK on X (Twitter)">
+        <a
+          href="https://x.com/gekmeme"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="GEK on X (Twitter)"
+        >
           <img src="/animations/x.png" alt="GEK on X (Twitter)" />
         </a>
-        <a href="https://t.me/gekmeme" target="_blank" rel="noopener noreferrer" title="GEK Telegram">
+        <a
+          href="https://t.me/gekmeme"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="GEK Telegram"
+        >
           <img src="/animations/telegram.webp" alt="GEK Telegram" />
         </a>
       </div>
@@ -559,7 +587,15 @@
           Copy Contract Address
           <!-- <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 12px; text-align: center; pointer-events: none;">Copy Contract Address</span> -->
         </a>
-      </div>
+        <a
+          class="hotspot telegram"
+          data-url="https://t.me/gekmeme"
+          title="GEK Telegram"
+        >
+        
+            <img 
+            src="/animations/telegram.webp"
+             alt="GEK Telegram" /> </a>
     </div>
 
     <script type="module" src="/src/main.js"></script>
