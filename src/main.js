@@ -234,7 +234,11 @@ class AudioManager {
 
 // Utility to init hotspot interactions
 function initHotspots() {
-    const hotspots = document.querySelectorAll('#hotspots .hotspot')
+    // Check if we're on mobile to use appropriate hotspots container ID
+    const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const hotspotsId = isMobile ? 'mobile-hotspots' : 'hotspots'
+    const hotspots = document.querySelectorAll(`#${hotspotsId} .hotspot`)
+    
     hotspots.forEach((el) => {
         el.setAttribute('role', 'link')
         el.setAttribute('tabindex', '0')
@@ -268,7 +272,10 @@ function initHotspots() {
 function initMobileExperience() {
     console.log('📱 Initializing mobile experience with full functionality...')
     
-    // Instead of simple mobile experience, use the full GEKLanding class with mobile manifest
+    // Initialize hotspots first
+    initHotspots()
+    
+    // Then initialize the full GEKLanding class with mobile manifest
     const gekLanding = new GEKLanding()
     console.log('📱 Mobile experience initialized with full functionality')
 }
@@ -764,8 +771,15 @@ class GEKLanding {
     }
 
     async setupThreeJS() {
-        const canvas = document.getElementById('three-canvas')
-        if (!canvas) return
+        // Check if we're on mobile to use appropriate canvas ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const canvasId = isMobile ? 'mobile-three-canvas' : 'three-canvas'
+        const canvas = document.getElementById(canvasId)
+        
+        if (!canvas) {
+            console.error(`❌ Canvas element with ID '${canvasId}' not found`)
+            return
+        }
 
         this.scene = new THREE.Scene()
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -808,8 +822,15 @@ class GEKLanding {
     setupEventListeners() {
         window.addEventListener('resize', this.handleResize.bind(this))
         
+        // Check if we're on mobile to use appropriate element IDs
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const overlayId = isMobile ? 'mobile-click-to-enter-overlay' : 'click-to-enter-overlay'
+        const audioControlId = isMobile ? 'mobile-audio-control' : 'audio-control'
+        const hotspotsId = isMobile ? 'mobile-hotspots' : 'hotspots'
+        const loadingScreenId = isMobile ? 'mobile-loading-screen' : 'loading-screen'
+        
         // Handle click to enter overlay
-        const overlay = document.getElementById('click-to-enter-overlay')
+        const overlay = document.getElementById(overlayId)
         if (overlay) {
             overlay.addEventListener('click', (e) => {
                 e.preventDefault()
@@ -822,11 +843,11 @@ class GEKLanding {
         wakeEvents.forEach(event => {
             document.addEventListener(event, (e) => {
                 // Don't wake up if clicking on UI elements
-                if (e.target.closest('#audio-control') || 
-                    e.target.closest('#hotspots') || 
+                if (e.target.closest(`#${audioControlId}`) || 
+                    e.target.closest(`#${hotspotsId}`) || 
                     e.target.closest('.hotspot') ||
-                    e.target.closest('#loading-screen') ||
-                    e.target.closest('#click-to-enter-overlay')) {
+                    e.target.closest(`#${loadingScreenId}`) ||
+                    e.target.closest(`#${overlayId}`)) {
                     return
                 }
                 this.handleUserInteraction()
@@ -1015,15 +1036,27 @@ class GEKLanding {
     }
 
     async _createSequencePlayer() {
+        // Check if we're on mobile to use different dimensions
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        
+        // Use different dimensions for mobile vs desktop
+        const width = isMobile ? 3.0 : 9.9      
+        const height = 5.65    
+        
+        // Use different position for mobile vs desktop
+        const position = isMobile ? 
+            new THREE.Vector3(0.1, -0.1, 0) :    // Mobile: centered, slightly lower
+            new THREE.Vector3(0.1, -0.1, 0)    // Desktop: original position
+        
         const player = new OptimizedSequencePlayer({
             scene: this.scene,
             camera: this.camera,
             renderer: this.renderer,
             fps: this.manifest.fps,
             manifest: this.manifest,
-            width: 9.9,
-            height: 5.65,
-            position: new THREE.Vector3(0.1, -0.1, 0),
+            width: width,
+            height: height,
+            position: position,
             zIndex: 0,
             stickBottom: true,
             bottomPadding: 0
@@ -1033,7 +1066,11 @@ class GEKLanding {
     }
 
     hideLoadingScreen() {
-        const loadingScreen = document.getElementById('loading-screen')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const loadingScreenId = isMobile ? 'mobile-loading-screen' : 'loading-screen'
+        const loadingScreen = document.getElementById(loadingScreenId)
+        
         if (loadingScreen) {
             loadingScreen.classList.add('fade-out')
             setTimeout(() => {
@@ -1045,7 +1082,11 @@ class GEKLanding {
     }
     
     showClickToEnterOverlay() {
-        const overlay = document.getElementById('click-to-enter-overlay')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const overlayId = isMobile ? 'mobile-click-to-enter-overlay' : 'click-to-enter-overlay'
+        const overlay = document.getElementById(overlayId)
+        
         if (overlay) {
             overlay.classList.add('show')
             console.log('🎬 Click to enter overlay shown')
@@ -1053,7 +1094,11 @@ class GEKLanding {
     }
     
     hideClickToEnterOverlay() {
-        const overlay = document.getElementById('click-to-enter-overlay')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const overlayId = isMobile ? 'mobile-click-to-enter-overlay' : 'click-to-enter-overlay'
+        const overlay = document.getElementById(overlayId)
+        
         if (overlay) {
             overlay.classList.remove('show')
             console.log('🎬 Click to enter overlay hidden')
@@ -1077,7 +1122,11 @@ class GEKLanding {
     }
 
     setupAudioControls() {
-        const audioControl = document.getElementById('audio-control')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const audioControlId = isMobile ? 'mobile-audio-control' : 'audio-control'
+        const audioControl = document.getElementById(audioControlId)
+        
         if (audioControl) {
             audioControl.addEventListener('click', () => {
                 const isMuted = this.audioManager.toggleMute()
