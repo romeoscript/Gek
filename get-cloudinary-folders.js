@@ -86,7 +86,7 @@ async function getAllFolders() {
     do {
       const options = {
         type: 'upload',
-        prefix: 'gek-animations/',
+        prefix: 'gek-animations-mobile/',
         max_results: 500,
         resource_type: 'image'
       };

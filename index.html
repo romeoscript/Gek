@@ -50,8 +50,17 @@
         }
       }
 
-      /* Mobile Experience Styles */
+      /* Mobile Experience Styles - Now uses same structure as desktop */
       .mobile-experience {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        z-index: 2000;
+        overflow: hidden;
+      }
+
+      /* Mobile loading screen (match desktop layout) */
+      #mobile-loading-screen {
         position: fixed;
         inset: 0;
         background: #000;
@@ -59,189 +68,84 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        text-align: center;
-        z-index: 2000;
-        overflow: hidden;
+        z-index: 1000;
+        transition: opacity 0.5s ease-out;
       }
 
-      .mobile-background {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        background-image: url("/animations/mobile.webp");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
+      #mobile-loading-screen.fade-out {
         opacity: 0;
-        transition: opacity 0.5s ease-in;
-        /* Fallback background in case image doesn't load */
-        background-color: #0a0a0a;
+        pointer-events: none;
       }
 
-      .mobile-background.loaded {
-        opacity: 1;
-      }
-
-      /* Temporary: show background even if not loaded for debugging */
-      .mobile-background {
-        opacity: 1 !important;
-      }
-
-      .mobile-logo-title {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        font-size: 5.2rem;
-        color: white;
-        padding: 0 2rem;
-        z-index: 9999;
-        font-family: "Orbitron", monospace;
-        font-weight: 900;
-        text-shadow: 0 0 30px rgba(0, 255, 136, 0.8);
-      }
-      .mobile-logo-title p {
-        font-size: 0.8rem;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 10px 20px;
-        width: 100%;
-        border-radius: 10px;
-        border: 1px solid rgba(0, 255, 136, 0.1);
-      }
-      .mobile-content {
-        position: relative;
-        z-index: 2;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        border-radius: 20px;
-        margin: 20px;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(0, 255, 136, 0.3);
-      }
-
-      .mobile-logo {
-        font-family: "Orbitron", monospace;
-        font-size: 2.5rem;
-        font-weight: 900;
-        color: #00ff88;
-        text-shadow: 0 0 30px rgba(0, 255, 136, 0.8);
-        margin-bottom: 1rem;
-        animation: mobilePulse 2s ease-in-out infinite;
-      }
-
-      .mobile-Logos {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1rem;
-        position: absolute;
-        border-radius: 100%;
-        bottom: 10px;
-        z-index: 9999;
-      }
-
-      .mobile-Logos img {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        object-fit: contain;
-        border: 4px solid white;
-      }
-
-      @keyframes mobilePulse {
-        0%,
-        100% {
-          opacity: 1;
-          transform: scale(1);
+      /* Mobile-specific optimizations for desktop structure */
+      @media (max-width: 768px) {
+        .mobile-experience .loading-logo {
+          font-size: 2.2rem;
+          margin-bottom: 1.2rem;
         }
-        50% {
-          opacity: 0.8;
-          transform: scale(1.05);
+        
+        .mobile-experience .loading-spinner {
+          width: 36px;
+          height: 36px;
+          border-width: 3px;
         }
-      }
-
-      .mobile-subtitle {
-        font-size: 1rem;
-        color: #00ff88;
-        margin-bottom: 2rem;
-        font-weight: 600;
-        text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
-      }
-
-      .mobile-cta {
-        background: linear-gradient(45deg, #00ff88, #00cc6a);
-        color: #000;
-        padding: 12px 25px;
-        border-radius: 50px;
-        text-decoration: none;
-        font-weight: 700;
-        font-size: 0.9rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
-        margin-bottom: 1.5rem;
-        border: none;
-        cursor: pointer;
-      }
-
-      .mobile-cta:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 25px rgba(0, 255, 136, 0.4);
-      }
-
-      .mobile-info {
-        font-size: 0.8rem;
-        color: #aaa;
-        max-width: 280px;
-        line-height: 1.4;
-        text-align: center;
-      }
-
-      /* Mobile responsive adjustments */
-      @media (max-width: 480px) {
-        .mobile-logo {
-          font-size: 2rem;
+        
+        .mobile-experience .click-to-enter-content {
+          font-size: 1.5rem;
+          padding: 1.5rem;
         }
-
-        .mobile-subtitle {
+        
+        .mobile-experience .click-to-enter-content .subtitle {
           font-size: 0.9rem;
         }
-
-        .mobile-cta {
-          padding: 10px 20px;
-          font-size: 0.8rem;
+        
+        .mobile-experience .audio-control {
+          width: 45px;
+          height: 45px;
+          top: 15px;
+          right: 15px;
         }
-
-        .mobile-content {
-          margin: 15px;
-          padding: 15px;
-        }
+        
+        
       }
 
-      @media (max-width: 360px) {
-        .mobile-logo {
-          font-size: 1.2rem;
-          margin: 0;
-          padding: 0 2rem;
-          color: white;
+      @media (max-width: 768px) {
+        
+        #mobile-hotspots .hotspot.dex{
+          top: 48.2% ;
+          left: 12% ;
+          width: 28%;
+          height: 5%;
+          --base-transform: rotate(4.5deg) skewX(-8deg);
+          transform-origin: 50% 50%;
+         
+        }
+        #mobile-hotspots .hotspot.x{
+          top: 54% ;
+          left: 10% ;
+          width: 29%;
+          height: 5%;
+          --base-transform: rotate(0.5deg) skewX(-7deg);
+          transform-origin: 50% 50%;
         }
 
-        .mobile-subtitle {
-          font-size: 0.8rem;
-        }
-
-        .mobile-cta {
-          padding: 8px 16px;
-          font-size: 0.75rem;
-        }
-
-        .mobile-info {
-          font-size: 0.7rem;
-          max-width: 250px;
-        }
+        #mobile-hotspots .hotspot.abstract {
+        top: 68.8%;
+        left: 26.5%;
+        width: 13%;
+        height: 2.5%;
+        --base-transform: rotate(-11.08deg) skewX(-5deg);
+        transform-origin: 50% 50%;
+      }
+      #mobile-hotspots .hotspot.telegram{
+        bottom: 10%;
+        left: 50%;
+        width: 29%;
+        height: 5%;
+        transform-origin: 50% 50%;
       }
 
+      }
       /* Desktop Experience Styles */
       .desktop-experience {
         position: fixed;
@@ -396,6 +300,19 @@
         background: rgba(0, 255, 136) !important;
         border: 2px dashed rgba(0, 255, 136, 0.5) !important;
       }
+      .hotspot.telegram{
+        bottom: 5%;
+        left: 12%;
+        padding: 10px;
+        border-radius: 10px;
+        transform-origin: 50% 50%;
+        color: #fff !important;
+      }
+      .hotspot.telegram img{
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+      }
 
       /* Audio Control Button */
       .audio-control {
@@ -489,31 +406,58 @@
     </style>
   </head>
   <body>
-    <!-- Mobile Experience -->
+    <!-- Mobile Experience - Now uses same structure as desktop -->
     <div class="mobile-only mobile-experience">
-      <div class="mobile-background"></div>
+      <!-- Loading Screen -->
+      <div id="mobile-loading-screen">
+        <div class="loading-logo">GEK</div>
+        <div class="loading-spinner"></div>
+      </div>
 
-      <div class="mobile-logo-title">
-        <div>GEK</div>
-        <p>
-          Experience the full interactive GEK universe on desktop for the
-          complete animated experience with all features and animations.
-        </p>
+      <!-- Click to Enter Overlay -->
+      <div class="click-to-enter-overlay" id="mobile-click-to-enter-overlay">
+        <div class="click-to-enter-content">
+          <div>CLICK ANYWHERE TO ENTER</div>
+        </div>
       </div>
-      <div class="mobile-content">
-        <div class="mobile-logo" id="mobile-copy-btn">COPY CA</div>
-      </div>
-      <div class="mobile-Logos">
-        <a href="https://dexscreener.com/abstract/0xbE449B1D1b51BF0D3c7Cfbd9Ef8eF6b121e71Da1" target="_blank" rel="noopener noreferrer" title="Dexscreener">
-          <img src="/animations/dexscreener.png" alt="Dexscreener" />
+
+      <canvas id="mobile-three-canvas"></canvas>
+
+      <!-- Audio Control Button -->
+      <button class="audio-control" id="mobile-audio-control" title="Toggle Audio">
+        🔊
+      </button>
+
+      <!-- Clickable hotspots overlay -->
+      <div id="mobile-hotspots">
+        <a
+          class="hotspot dex"
+          data-url="https://dexscreener.com/abstract/0xbE449B1D1b51BF0D3c7Cfbd9Ef8eF6b121e71Da1"
+          title="Dexscreener"
+        ></a>
+        <a class="hotspot x" data-url="https://x.com/gekmeme" title="X"></a>
+        <a
+          class="hotspot abstract"
+          data-url="https://portal.abs.xyz/trade?buy=0xbe449b1d1b51bf0d3c7cfbd9ef8ef6b121e71da1&showChart=true&showHistory=true"
+          title="Abstract"
+        ></a>
+        <a
+          class="hotspot contract"
+          data-contract="0xbe449b1d1b51bf0d3c7cfbd9ef8ef6b121e71da1"
+          title="Copy Contract Address"
+        >
+          Copy Contract Address
         </a>
-        <a href="https://x.com/gekmeme" target="_blank" rel="noopener noreferrer" title="GEK on X (Twitter)">
-          <img src="/animations/x.png" alt="GEK on X (Twitter)" />
-        </a>
-        <a href="https://t.me/gekmeme" target="_blank" rel="noopener noreferrer" title="GEK Telegram">
-          <img src="/animations/telegram.webp" alt="GEK Telegram" />
-        </a>
-      </div>
+        <a
+          class="hotspot telegram"
+          data-url="https://t.me/gekmeme"
+          title="GEK Telegram"
+        >
+        
+            <img 
+            src="/animations/telegram.webp"
+             alt="GEK Telegram" /> </a>
+    </div>
     </div>
 
     <!-- Desktop Experience -->
@@ -559,7 +503,15 @@
           Copy Contract Address
           <!-- <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 12px; text-align: center; pointer-events: none;">Copy Contract Address</span> -->
         </a>
-      </div>
+        <a
+          class="hotspot telegram"
+          data-url="https://t.me/gekmeme"
+          title="GEK Telegram"
+        >
+        
+            <img 
+            src="/animations/telegram.webp"
+             alt="GEK Telegram" /> </a>
     </div>
 
     <script type="module" src="/src/main.js"></script>

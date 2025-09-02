@@ -234,7 +234,11 @@ class AudioManager {
 
 // Utility to init hotspot interactions
 function initHotspots() {
-    const hotspots = document.querySelectorAll('#hotspots .hotspot')
+    // Check if we're on mobile to use appropriate hotspots container ID
+    const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const hotspotsId = isMobile ? 'mobile-hotspots' : 'hotspots'
+    const hotspots = document.querySelectorAll(`#${hotspotsId} .hotspot`)
+    
     hotspots.forEach((el) => {
         el.setAttribute('role', 'link')
         el.setAttribute('tabindex', '0')
@@ -266,97 +270,19 @@ function initHotspots() {
 
 // Initialize mobile experience
 function initMobileExperience() {
-    // Handle mobile background image loading
-    const mobileBackground = document.querySelector('.mobile-background')
-    if (mobileBackground) {
-        console.log('📱 Mobile background element found, setting up loading handlers')
-        
-        // Create a test image to check if the background image loads
-        const testImage = new Image()
-        testImage.onload = () => {
-            console.log('✅ Mobile background image loaded successfully')
-            mobileBackground.classList.add('loaded')
-        }
-        
-        testImage.onerror = (e) => {
-            console.error('❌ Mobile background image failed to load:', e)
-            console.warn('Mobile background image failed to load, using fallback background')
-            mobileBackground.style.backgroundImage = 'none'
-            document.querySelector('.mobile-experience').style.background = 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)'
-        }
-        
-        // Try to load the image
-        testImage.src = '/animations/mobile.webp'
-    } else {
-        console.error('❌ Mobile background element not found')
-    }
+    console.log('📱 Initializing mobile experience with full functionality...')
     
-    const mobileCopyBtn = document.getElementById('mobile-copy-btn')
-    if (mobileCopyBtn) {
-        mobileCopyBtn.addEventListener('click', (e) => {
-            e.preventDefault()
-            const contractAddress = '0xbe449b1d1b51bf0d3c7cfbd9ef8ef6b121e71da1'
-            
-            navigator.clipboard.writeText(contractAddress).then(() => {
-                // Show mobile-specific notification
-                showMobileCopyNotification('Contract address copied!')
-                
-                // Change button text temporarily
-                const originalText = mobileCopyBtn.textContent
-                mobileCopyBtn.textContent = 'COPIED!'
-                mobileCopyBtn.style.background = 'linear-gradient(45deg, #00cc6a, #00ff88)'
-                
-                setTimeout(() => {
-                    mobileCopyBtn.textContent = originalText
-                    mobileCopyBtn.style.background = 'transparent'
-                }, 2000)
-            }).catch(err => {
-                console.error('Failed to copy contract address:', err)
-                showMobileCopyNotification('Failed to copy address')
-            })
-        })
-    }
+    // Initialize hotspots first
+    initHotspots()
+    
+    // Then initialize the full GEKLanding class with mobile manifest
+    const gekLanding = new GEKLanding()
+    console.log('📱 Mobile experience initialized with full functionality')
 }
 
-// Function to show mobile copy notification
-function showMobileCopyNotification(message) {
-    const notification = document.createElement('div')
-    notification.textContent = message
-    notification.style.cssText = `
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        background: rgba(0, 0, 0, 0.9);
-        color: #00ff88;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-family: 'Rajdhani', sans-serif;
-        font-weight: 600;
-        font-size: 14px;
-        z-index: 10000;
-        border: 1px solid rgba(0, 255, 136, 0.6);
-        box-shadow: 0 6px 18px rgba(0, 255, 136, 0.25);
-        transform: translateX(120%);
-        transition: transform 0.25s ease;
-    `
-    
-    document.body.appendChild(notification)
-    
-    // Slide in
-    requestAnimationFrame(() => {
-        notification.style.transform = 'translateX(0)'
-    })
-    
-    // Remove after 2 seconds
-    setTimeout(() => {
-        notification.style.transform = 'translateX(120%)'
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification)
-            }
-        }, 250)
-    }, 2000)
-}
+
+
+
 
 // Function to show copy notification
 function showCopyNotification(message) {
@@ -489,7 +415,7 @@ class OptimizedSequencePlayer {
         }
         
         // Ensure sleep animations always loop
-        const shouldLoop = key === 'sleep' ? true : !!cfg.loop
+        const shouldLoop = (key === 'sleep' || key === 'background') ? true : !!cfg.loop
         this.current = { key, cfg, index: 0, frames, loop: shouldLoop }
         
         console.log(`🎬 Loading sequence: ${key} with ${frames.length} frames, loop: ${shouldLoop}, cfg.loop: ${cfg.loop}`)
@@ -767,6 +693,33 @@ class GEKLanding {
     }
 
     async loadManifest() {
+        // Check if we're on mobile to load appropriate manifest
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        
+        if (isMobile) {
+            // Always load mobile manifest for mobile devices
+            try {
+                const res = await fetch('/animations/manifest-mobile.json')
+                if (res.ok) {
+                    this.manifest = await res.json()
+                    console.log('📱 Loaded mobile manifest with optimized frame counts')
+                    console.log(`   Background: ${this.manifest.sequences.background?.fileCount || 0} frames`)
+                    console.log(`   Idle Loop: ${this.manifest.sequences.idle?.fileCount || 0} frames`)
+                    console.log(`   Sleep Cycle: ${this.manifest.sequences.sleep?.fileCount || 0} frames`)
+                } else {
+                    throw new Error('Mobile manifest not found')
+                }
+            } catch (error) {
+                console.error('❌ Failed to load mobile manifest:', error)
+                throw error // Don't fall back to desktop manifest on mobile
+            }
+        } else {
+            // Load desktop manifest for desktop devices
+            await this.loadDesktopManifest()
+        }
+    }
+
+    async loadDesktopManifest() {
         // Try to load 50% manifest first for optimal performance
         try {
             // const res = await fetch('/animations/manifest-new-bg.json')
@@ -818,8 +771,15 @@ class GEKLanding {
     }
 
     async setupThreeJS() {
-        const canvas = document.getElementById('three-canvas')
-        if (!canvas) return
+        // Check if we're on mobile to use appropriate canvas ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const canvasId = isMobile ? 'mobile-three-canvas' : 'three-canvas'
+        const canvas = document.getElementById(canvasId)
+        
+        if (!canvas) {
+            console.error(`❌ Canvas element with ID '${canvasId}' not found`)
+            return
+        }
 
         this.scene = new THREE.Scene()
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -862,8 +822,15 @@ class GEKLanding {
     setupEventListeners() {
         window.addEventListener('resize', this.handleResize.bind(this))
         
+        // Check if we're on mobile to use appropriate element IDs
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const overlayId = isMobile ? 'mobile-click-to-enter-overlay' : 'click-to-enter-overlay'
+        const audioControlId = isMobile ? 'mobile-audio-control' : 'audio-control'
+        const hotspotsId = isMobile ? 'mobile-hotspots' : 'hotspots'
+        const loadingScreenId = isMobile ? 'mobile-loading-screen' : 'loading-screen'
+        
         // Handle click to enter overlay
-        const overlay = document.getElementById('click-to-enter-overlay')
+        const overlay = document.getElementById(overlayId)
         if (overlay) {
             overlay.addEventListener('click', (e) => {
                 e.preventDefault()
@@ -876,11 +843,11 @@ class GEKLanding {
         wakeEvents.forEach(event => {
             document.addEventListener(event, (e) => {
                 // Don't wake up if clicking on UI elements
-                if (e.target.closest('#audio-control') || 
-                    e.target.closest('#hotspots') || 
+                if (e.target.closest(`#${audioControlId}`) || 
+                    e.target.closest(`#${hotspotsId}`) || 
                     e.target.closest('.hotspot') ||
-                    e.target.closest('#loading-screen') ||
-                    e.target.closest('#click-to-enter-overlay')) {
+                    e.target.closest(`#${loadingScreenId}`) ||
+                    e.target.closest(`#${overlayId}`)) {
                     return
                 }
                 this.handleUserInteraction()
@@ -993,6 +960,11 @@ class GEKLanding {
                     this.sequencePlayer.play()
                     // Start snoring sound
                     this.audioManager.play('snoring')
+                    // Resume background music on mobile for better audibility cycles
+                    const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                    if (isMobile) {
+                        this.audioManager.play('alan')
+                    }
                 }
             }, transitionDuration)
             
@@ -1003,6 +975,10 @@ class GEKLanding {
                     await this.sequencePlayer.switchTo('sleep')
                     this.sequencePlayer.play()
                     this.audioManager.play('snoring')
+                    const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                    if (isMobile) {
+                        this.audioManager.play('alan')
+                    }
                 }
             }, transitionDuration + 2000) // Add 2 seconds buffer
         } catch (error) {
@@ -1069,15 +1045,27 @@ class GEKLanding {
     }
 
     async _createSequencePlayer() {
+        // Check if we're on mobile to use different dimensions
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        
+        // Use different dimensions for mobile vs desktop
+        const width = isMobile ? 3.0 : 9.9      
+        const height = 5.65    
+        
+        // Use different position for mobile vs desktop
+        const position = isMobile ? 
+            new THREE.Vector3(0.1, -0.1, 0) :    // Mobile: centered, slightly lower
+            new THREE.Vector3(0.1, -0.1, 0)    // Desktop: original position
+        
         const player = new OptimizedSequencePlayer({
             scene: this.scene,
             camera: this.camera,
             renderer: this.renderer,
             fps: this.manifest.fps,
             manifest: this.manifest,
-            width: 9.9,
-            height: 5.65,
-            position: new THREE.Vector3(0.1, -0.1, 0),
+            width: width,
+            height: height,
+            position: position,
             zIndex: 0,
             stickBottom: true,
             bottomPadding: 0
@@ -1087,7 +1075,11 @@ class GEKLanding {
     }
 
     hideLoadingScreen() {
-        const loadingScreen = document.getElementById('loading-screen')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const loadingScreenId = isMobile ? 'mobile-loading-screen' : 'loading-screen'
+        const loadingScreen = document.getElementById(loadingScreenId)
+        
         if (loadingScreen) {
             loadingScreen.classList.add('fade-out')
             setTimeout(() => {
@@ -1099,7 +1091,11 @@ class GEKLanding {
     }
     
     showClickToEnterOverlay() {
-        const overlay = document.getElementById('click-to-enter-overlay')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const overlayId = isMobile ? 'mobile-click-to-enter-overlay' : 'click-to-enter-overlay'
+        const overlay = document.getElementById(overlayId)
+        
         if (overlay) {
             overlay.classList.add('show')
             console.log('🎬 Click to enter overlay shown')
@@ -1107,7 +1103,11 @@ class GEKLanding {
     }
     
     hideClickToEnterOverlay() {
-        const overlay = document.getElementById('click-to-enter-overlay')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const overlayId = isMobile ? 'mobile-click-to-enter-overlay' : 'click-to-enter-overlay'
+        const overlay = document.getElementById(overlayId)
+        
         if (overlay) {
             overlay.classList.remove('show')
             console.log('🎬 Click to enter overlay hidden')
@@ -1131,7 +1131,11 @@ class GEKLanding {
     }
 
     setupAudioControls() {
-        const audioControl = document.getElementById('audio-control')
+        // Check if we're on mobile to use appropriate element ID
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const audioControlId = isMobile ? 'mobile-audio-control' : 'audio-control'
+        const audioControl = document.getElementById(audioControlId)
+        
         if (audioControl) {
             audioControl.addEventListener('click', () => {
                 const isMuted = this.audioManager.toggleMute()
