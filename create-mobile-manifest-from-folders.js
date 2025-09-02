@@ -7,6 +7,24 @@ cloudinary.v2.config({
   api_secret: 'gCGAuApl_VhLq1VdpsFJbRq94Lk'
 });
 
+async function fetchAllResources(prefix) {
+  const all = [];
+  let nextCursor = undefined;
+  do {
+    const res = await cloudinary.v2.api.resources({
+      type: 'upload',
+      prefix,
+      max_results: 500,
+      next_cursor: nextCursor
+    });
+    if (res.resources && res.resources.length) {
+      all.push(...res.resources);
+    }
+    nextCursor = res.next_cursor;
+  } while (nextCursor);
+  return all;
+}
+
 async function createMobileManifestFromFolders() {
   console.log('🔧 Creating mobile manifest from gek-animations-mobile folders...\n');
   
@@ -20,16 +38,12 @@ async function createMobileManifestFromFolders() {
       sequences: {}
     };
 
-    // Get all resources from gek-animations-mobile
-    const result = await cloudinary.v2.api.resources({
-      type: 'upload',
-      prefix: 'gek-animations-mobile/',
-      max_results: 1000
-    });
+    // Get all resources from gek-animations-mobile (paginated)
+    const resources = await fetchAllResources('gek-animations-mobile/');
 
     // Group files by folder
     const folders = {};
-    result.resources.forEach(resource => {
+    resources.forEach(resource => {
       const path = resource.public_id;
       const parts = path.split('/');
       if (parts.length >= 3) {

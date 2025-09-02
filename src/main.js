@@ -915,11 +915,6 @@ class GEKLanding {
             
             // Wait for gasp sound to finish, then start typing sound
             setTimeout(() => {
-                // On mobile, pause background music to make typing more audible
-                const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-                if (isMobile) {
-                    this.audioManager.stop('alan')
-                }
                 this.audioManager.play('typing')
             }, 2000) // Wait 2 seconds for gasp to finish
             
