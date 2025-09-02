@@ -81,13 +81,46 @@
           right: 15px;
         }
         
-        .mobile-experience .hotspot {
-          /* Make hotspots more touch-friendly on mobile */
-          min-width: 60px;
-          min-height: 60px;
-        }
+        
       }
 
+      @media (max-width: 768px) {
+        
+        #mobile-hotspots .hotspot.dex{
+          top: 48.2% ;
+          left: 12% ;
+          width: 28%;
+          height: 5%;
+          --base-transform: rotate(4.5deg) skewX(-8deg);
+          transform-origin: 50% 50%;
+         
+        }
+        #mobile-hotspots .hotspot.x{
+          top: 54% ;
+          left: 10% ;
+          width: 29%;
+          height: 5%;
+          --base-transform: rotate(0.5deg) skewX(-7deg);
+          transform-origin: 50% 50%;
+        }
+
+        #mobile-hotspots .hotspot.abstract {
+        top: 68.8%;
+        left: 26.5%;
+        width: 13%;
+        height: 2.5%;
+        --base-transform: rotate(-11.08deg) skewX(-5deg);
+        transform-origin: 50% 50%;
+      }
+      #mobile-hotspots .hotspot.telegram{
+        bottom: 10%;
+        left: 50%;
+        width: 29%;
+        height: 5%;
+        transform-origin: 50% 50%;
+      }
+
+      }
       /* Desktop Experience Styles */
       .desktop-experience {
         position: fixed;
